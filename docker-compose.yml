@@ -1,0 +1,11 @@
+services:
+  tardis:
+    image: tardisdev/tardis-machine
+    volumes:
+      - ./host-cache-dir:/.cache
+    ports:
+      - "8000:8000"
+      - "8001:8001"
+    environment:
+      TM_API_KEY: "None"
+    restart: unless-stopped
