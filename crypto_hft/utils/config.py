@@ -22,6 +22,12 @@ class Config():
         'trade', 'book_snapshot_10_0ms'
     ]
 
+    db_name = None
+    db_user = None
+    db_password = None
+    db_host = None
+    db_port = None
+
     def __init__(self): 
         load_dotenv()
 
