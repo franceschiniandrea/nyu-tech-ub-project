@@ -23,12 +23,6 @@ async def websocket_consumer(exchange):
 
     while True:
         try:
-        #     stream_options = {
-        #         "exchange": exchange,
-        #         "symbols": ["BTC-USD"],
-        #         "dataTypes": DATA_TYPES
-        #     }
-
             stream_options = {
                 "exchange": exchange,
                 "symbols": EXCHANGE_SYMBOLS.get(exchange, []),
@@ -62,6 +56,9 @@ async def websocket_consumer(exchange):
                             logging.warning(f"[!] {exchange} WebSocket closed unexpectedly. Reconnecting in 5s...")
                             await asyncio.sleep(5)
                             break  
+                        
+                        else: 
+                            raise ValueError('unhandled message type %s' % msg.type)
 
         except aiohttp.ClientConnectionError as e:
             retries += 1
@@ -109,7 +106,7 @@ async def update_data(trade, exchange):
 async def main():
     """Runs WebSocket consumers for all exchanges concurrently."""
     logging.info("[+] Starting WebSocket consumers...")
-    await asyncio.gather(*[websocket_consumer(exchange) for exchange in EXCHANGES])
+    await asyncio.gather(*[websocket_consumer(exchange) for exchange in config.exchanges])
 
 if __name__ == "__main__":
     try:
