@@ -33,7 +33,7 @@ class Config():
 
         for secret in SECRETS:
             secret_name = secret.upper()
-            if os.getenv(secret) is None:
+            if os.getenv(secret_name) is None:
                 raise ValueError(
                     f"Missing secret: {secret_name}."
                     "Please create a .env file in the root directory of the project"
