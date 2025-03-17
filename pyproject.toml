@@ -5,9 +5,12 @@ description = "TECH-UB-24 Crypto HFT Project"
 readme = "README.md"
 requires-python = ">=3.11.0"
 dependencies = [
+    "aiohttp>=3.11.14",
     "numpy>=2.2.3",
     "pandas>=2.2.3",
+    "psycopg2-binary>=2.9.10",
     "python-dotenv>=1.0.1",
     "requests>=2.32.3",
+    "types-psycopg2>=2.9.21.20250121",
     "websockets>=15.0.1",
 ]
