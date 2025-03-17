@@ -22,10 +22,16 @@ async def websocket_consumer(exchange):
     #if exchange == "coinbase":
         #logging.info(f"[DEBUG] Coinbase Symbols Sent: {EXCHANGE_SYMBOLS.get(exchange, [])}")
     retries = 0  
-    max_retries = 20  # ✅ Increase max retries for stability
+    max_retries = 20  
 
     while True:
         try:
+        #     stream_options = {
+        #         "exchange": exchange,
+        #         "symbols": ["BTC-USD"],
+        #         "dataTypes": DATA_TYPES
+        #     }
+
             stream_options = {
                 "exchange": exchange,
                 "symbols": EXCHANGE_SYMBOLS.get(exchange, []),

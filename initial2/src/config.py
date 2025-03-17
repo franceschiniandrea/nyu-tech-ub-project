@@ -1,6 +1,5 @@
 
-EXCHANGES = ["coinbase"]  #"hyperliquid", "poloniex",
-
+EXCHANGES = ["coinbase", "hyperliquid", "poloniex"]  #, "hyperliquid", "poloniex"
 
 BASE_TICKERS = [
     #"OP_USDT",
@@ -13,14 +12,14 @@ BASE_TICKERS = [
     #"STEEM_USDT",
     #"UNI_USDT",
     #"PEPE_USDT",
-    "BNB_USDT",
+    #BNB_USDT",
     #"LINK_USDT",
     "BTC_USDT",
     "ETH_USDT"
 ]
 
 # Data types to stream from Tardis Machine
-DATA_TYPES = ["trade", "book_snapshot_10_100ms"] # ,"book_snapshot_10_100ms"
+DATA_TYPES = ["trade", "book_snapshot_10_0ms"] # ,"book_snapshot_10_100ms"
 
 DB_CONFIG = {
     "database": "tardis_db",
