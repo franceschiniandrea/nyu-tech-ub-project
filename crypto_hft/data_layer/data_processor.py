@@ -1,6 +1,4 @@
 import logging
-import time 
-
 
 # Enable logging
 LOG_PROCESSED_MESSAGES = False  # Set to False to disable processed data logging
@@ -56,6 +54,7 @@ def process_order_book_data(order_book):
         asks = order_book.get("asks", [])[:10]  # Take top 10 asks
 
         # Extract bid and ask levels, filling missing values with None
+        # todo fill with np.nan instead of None
         bid_prices = [bid["price"] for bid in bids] + [None] * (10 - len(bids))
         bid_sizes = [bid["amount"] for bid in bids] + [None] * (10 - len(bids))
         ask_prices = [ask["price"] for ask in asks] + [None] * (10 - len(asks))
@@ -66,26 +65,27 @@ def process_order_book_data(order_book):
             "symbol": order_book.get("symbol"),
             "timestamp": order_book.get("timestamp"),
             "local_timestamp": order_book.get("localTimestamp"),
-            "bid0": bid_prices[0], "bid0_size": bid_sizes[0],
-            "bid1": bid_prices[1], "bid1_size": bid_sizes[1],
-            "bid2": bid_prices[2], "bid2_size": bid_sizes[2],
-            "bid3": bid_prices[3], "bid3_size": bid_sizes[3],
-            "bid4": bid_prices[4], "bid4_size": bid_sizes[4],
-            "bid5": bid_prices[5], "bid5_size": bid_sizes[5],
-            "bid6": bid_prices[6], "bid6_size": bid_sizes[6],
-            "bid7": bid_prices[7], "bid7_size": bid_sizes[7],
-            "bid8": bid_prices[8], "bid8_size": bid_sizes[8],
-            "bid9": bid_prices[9], "bid9_size": bid_sizes[9],
-            "ask0": ask_prices[0], "ask0_size": ask_sizes[0],
-            "ask1": ask_prices[1], "ask1_size": ask_sizes[1],
-            "ask2": ask_prices[2], "ask2_size": ask_sizes[2],
-            "ask3": ask_prices[3], "ask3_size": ask_sizes[3],
-            "ask4": ask_prices[4], "ask4_size": ask_sizes[4],
-            "ask5": ask_prices[5], "ask5_size": ask_sizes[5],
-            "ask6": ask_prices[6], "ask6_size": ask_sizes[6],
-            "ask7": ask_prices[7], "ask7_size": ask_sizes[7],
-            "ask8": ask_prices[8], "ask8_size": ask_sizes[8],
-            "ask9": ask_prices[9], "ask9_size": ask_sizes[9]
+            # todo this should be automated based on the number of levels
+            "bid_0_px": bid_prices[0], "bid_0_sz": bid_sizes[0],
+            "bid_1_px": bid_prices[1], "bid_1_sz": bid_sizes[1],
+            "bid_2_px": bid_prices[2], "bid_2_sz": bid_sizes[2],
+            "bid_3_px": bid_prices[3], "bid_3_sz": bid_sizes[3],
+            "bid_4_px": bid_prices[4], "bid_4_sz": bid_sizes[4],
+            "bid_5_px": bid_prices[5], "bid_5_sz": bid_sizes[5],
+            "bid_6_px": bid_prices[6], "bid_6_sz": bid_sizes[6],
+            "bid_7_px": bid_prices[7], "bid_7_sz": bid_sizes[7],
+            "bid_8_px": bid_prices[8], "bid_8_sz": bid_sizes[8],
+            "bid_9_px": bid_prices[9], "bid_9_sz": bid_sizes[9],
+            "ask_0_px": ask_prices[0], "ask_0_sz": ask_sizes[0],
+            "ask_1_px": ask_prices[1], "ask_1_sz": ask_sizes[1],
+            "ask_2_px": ask_prices[2], "ask_2_sz": ask_sizes[2],
+            "ask_3_px": ask_prices[3], "ask_3_sz": ask_sizes[3],
+            "ask_4_px": ask_prices[4], "ask_4_sz": ask_sizes[4],
+            "ask_5_px": ask_prices[5], "ask_5_sz": ask_sizes[5],
+            "ask_6_px": ask_prices[6], "ask_6_sz": ask_sizes[6],
+            "ask_7_px": ask_prices[7], "ask_7_sz": ask_sizes[7],
+            "ask_8_px": ask_prices[8], "ask_8_sz": ask_sizes[8],
+            "ask_9_px": ask_prices[9], "ask_9_sz": ask_sizes[9]
         }
 
         if LOG_PROCESSED_MESSAGES:

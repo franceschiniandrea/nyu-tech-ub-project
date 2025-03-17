@@ -1,6 +1,7 @@
 import psycopg2
 from psycopg2 import sql
 from crypto_hft.utils.config import Config
+from itertools import product
 
 config = Config()
 
@@ -12,6 +13,7 @@ DB_CONFIG = {
     'port': config.db_port
 }
 
+# todo this should be pulled from the config
 BASE_TICKERS = [
     "OP_USDT", "SC_USDT", "LDO_USDT", "SUI_USDT",
     "NEAR_USDT", "DASH_USDT", "ATOM_USDT", "STEEM_USDT",
@@ -21,32 +23,21 @@ BASE_TICKERS = [
 
 def create_order_book_table(symbol):
     table_name = f"orderbook_{symbol.upper().replace('-', '_')}"
-    
+
+    price_cols = []
+    for i, side, col_type in product(
+        range(10), # number of levels in the ob
+        ['bid', 'ask'], # bid and ask columns
+        ['sz', 'px'] # one column for the size, one for the price
+    ):
+        price_cols.append(f'{side}_{i}_{col_type} NUMERIC')
+
     return sql.SQL("""
         CREATE TABLE IF NOT EXISTS {table} (
             id SERIAL PRIMARY KEY,
             exchange TEXT NOT NULL,
             symbol TEXT NOT NULL,
-            bid0 NUMERIC, bid0_size NUMERIC,
-            bid1 NUMERIC, bid1_size NUMERIC,
-            bid2 NUMERIC, bid2_size NUMERIC,
-            bid3 NUMERIC, bid3_size NUMERIC,
-            bid4 NUMERIC, bid4_size NUMERIC,
-            bid5 NUMERIC, bid5_size NUMERIC,
-            bid6 NUMERIC, bid6_size NUMERIC,
-            bid7 NUMERIC, bid7_size NUMERIC,
-            bid8 NUMERIC, bid8_size NUMERIC,
-            bid9 NUMERIC, bid9_size NUMERIC,
-            ask0 NUMERIC, ask0_size NUMERIC,
-            ask1 NUMERIC, ask1_size NUMERIC,
-            ask2 NUMERIC, ask2_size NUMERIC,
-            ask3 NUMERIC, ask3_size NUMERIC,
-            ask4 NUMERIC, ask4_size NUMERIC,
-            ask5 NUMERIC, ask5_size NUMERIC,
-            ask6 NUMERIC, ask6_size NUMERIC,
-            ask7 NUMERIC, ask7_size NUMERIC,
-            ask8 NUMERIC, ask8_size NUMERIC,
-            ask9 NUMERIC, ask9_size NUMERIC,
+            {price_cols_fmt}
             timestamp TIMESTAMPTZ NOT NULL,
             local_timestamp TIMESTAMPTZ NOT NULL
         );
@@ -57,7 +48,8 @@ def create_order_book_table(symbol):
         table=sql.Identifier(table_name),
         idx_exchange=sql.Identifier(f"idx_{table_name}_exchange"),
         idx_symbol=sql.Identifier(f"idx_{table_name}_symbol"),
-        idx_timestamp=sql.Identifier(f"idx_{table_name}_timestamp")
+        idx_timestamp=sql.Identifier(f"idx_{table_name}_timestamp"),
+        price_cols_fmt=sql.SQL(', ').join(map(sql.SQL, price_cols))
     )
 
 def create_trade_table(symbol):
@@ -104,4 +96,5 @@ def setup_database():
         print(f"[❌] Error setting up database: {e}")
 
 if __name__ == "__main__":
-    setup_database()
+    # setup_database()
+    print(create_order_book_table('BTC-USDT'))

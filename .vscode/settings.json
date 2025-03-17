@@ -2,6 +2,7 @@
     "conventionalCommits.scopes": [
         "project",
         "docker",
-        "utils"
+        "utils",
+        "data_layer"
     ]
 }

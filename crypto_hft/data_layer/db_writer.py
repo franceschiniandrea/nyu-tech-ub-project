@@ -1,12 +1,10 @@
 import asyncio
-import psycopg2.extras
 import logging
 import time
 import io
 from psycopg2 import sql
 from psycopg2.pool import ThreadedConnectionPool
 from crypto_hft.utils.config import Config
-from crypto_hft.utils.symbol_mapper import REVERSE_SYMBOL_MAP
 
 config = Config()
 DB_CONFIG = {
@@ -98,16 +96,16 @@ def insert_batch_order_books(conn, received_symbol, batch):
 
     output = io.StringIO()
     for item in batch:
-        output.write(f"{item['exchange']},{item['symbol']},{item['bid0']},{item['bid0_size']},"
-                     f"{item['ask0']},{item['ask0_size']},{item['timestamp']},{item['local_timestamp']}\n")
+        output.write(f"{item['exchange']},{item['symbol']},{item['bid_0_px']},{item['bid_0_sz']},"
+                     f"{item['ask_0_px']},{item['ask_0_sz']},{item['timestamp']},{item['local_timestamp']}\n")
     output.seek(0)
 
     try:
         start_time = time.perf_counter()  # ✅ Start timing
         with conn.cursor() as cur:
             cur.copy_from(output, table_name, sep=",", columns=(
-                "exchange", "symbol", "bid0", "bid0_size", 
-                "ask0", "ask0_size", "timestamp", "local_timestamp"
+                "exchange", "symbol", "bid_0_px", "bid_0_sz", 
+                "ask_0_px", "ask_0_sz", "timestamp", "local_timestamp"
             ))
             conn.commit()
         end_time = time.perf_counter()
