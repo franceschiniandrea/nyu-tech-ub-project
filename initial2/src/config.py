@@ -1,5 +1,5 @@
 
-EXCHANGES = ["hyperliquid", "poloniex", "coinbase"]  #  "poloniex", "coinbase"
+EXCHANGES = ["coinbase"]  #"hyperliquid", "poloniex",
 
 
 BASE_TICKERS = [

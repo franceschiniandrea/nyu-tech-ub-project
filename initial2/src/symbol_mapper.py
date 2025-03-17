@@ -1,22 +1,29 @@
 from config import EXCHANGES, BASE_TICKERS
 
-# Dictionary for exchange-specific symbol mappings (for WebSocket requests)
 EXCHANGE_SYMBOLS = {}
 REVERSE_SYMBOL_MAP = {exchange: {} for exchange in EXCHANGES}
 
-# Define exchange-specific symbol formats
+# ✅ Define exchange-specific symbol formats for WebSocket input
 EXCHANGE_MAPPING_RULES = {
-    "hyperliquid": lambda base, quote: base.lower(),  # ✅ FIX: Hyperliquid only takes base (e.g., "btc")
-    "binance-us": lambda base, quote: f"{base}{quote}".lower(),  # ✅ "btcusdt"
+    "hyperliquid": lambda base, quote: base.lower(),  # ✅ Hyperliquid only takes base (e.g., "btc")
+    "binanceus": lambda base, quote: f"{base}{quote}".lower(),  # ✅ "btcusdt"
     "binance": lambda base, quote: f"{base}{quote}".lower(),  # ✅ "btcusdt"
     "poloniex": lambda base, quote: f"{base}_{quote}",  # ✅ "BTC_USDT"
-    "coinbase": lambda base, quote: f"{base}-{quote.replace('USDT', 'USD')}",  # ✅ "BTC-USD"
+    "coinbase": lambda base, quote: f"{base.upper()}-{quote.replace('usdt', 'USD')}",  # ✅ "BTC-USD"
 }
 
+# ✅ Define exchange-specific output mapping for WebSocket response → Database format
+EXCHANGE_OUTPUT_MAPPING_RULES = {
+    "hyperliquid": lambda symbol: f"{symbol.upper()}_USDT",  # BTC → BTC_USDT
+    "binanceus": lambda symbol: f"{symbol[:-4].upper()}_USDT" if symbol.endswith("usdt") else symbol,  # ✅ BTCUSD → BTC_USDT, ETHUSD → ETH_USDT
+    "binance": lambda symbol: f"{symbol[:-4].upper()}_USDT" if symbol.endswith("usdt") else symbol,  # ✅ BTCUSD → BTC_USDT, ETHUSD → ETH_USDT
+    "poloniex": lambda symbol: symbol,  # No change (already BTC_USDT)
+    "coinbase": lambda symbol: f"{symbol.split('-')[0]}_USDT"  # ✅ BTC-USD → BTC_USDT
+}
 
 def map_symbols(exchange, tickers):
     """
-    Maps tickers to the format required by each exchange.
+    Maps tickers to the format required by each exchange for WebSocket requests.
     Returns:
         list: Mapped tickers in the correct format for WebSocket requests.
         dict: Reverse mapping for database insertion.
@@ -28,35 +35,22 @@ def map_symbols(exchange, tickers):
         base, quote = ticker.split("_")
         base, quote = base.lower(), quote.lower()  # Precompute lowercase once
 
-        # Special handling for Hyperliquid (only uses base)
-        if exchange == "hyperliquid":
-            mapped = base.lower()  # Expects just "btc", "eth", etc.
-        else:
-            mapped = EXCHANGE_MAPPING_RULES.get(exchange, lambda b, q: f"{b}_{q}")(base, quote)
+        mapped = EXCHANGE_MAPPING_RULES.get(exchange, lambda b, q: f"{b}_{q}")(base, quote)
 
         mapped_list.append(mapped)
         mapped_dict[mapped] = ticker  # Reverse lookup for database
 
     return mapped_list, mapped_dict
 
-
-# Generate symbol mappings for each exchange
+# Generate symbol mappings
 for exchange in EXCHANGES:
     EXCHANGE_SYMBOLS[exchange], REVERSE_SYMBOL_MAP[exchange] = map_symbols(exchange, BASE_TICKERS)
 
-# EXCHANGES = ["hyperliquid", "binance", "poloniex", "coinbase"]
-# BASE_TICKERS = ["BTC_USDT", "ETH_USDT", "OP_USDT"]
+def reverse_map_symbol(exchange, symbol):
+    """
+    Converts the exchange-specific output symbol format back to the standard 'BTC_USDT' format.
+    """
+    return EXCHANGE_OUTPUT_MAPPING_RULES.get(exchange, lambda s: s)(symbol)
 
-# EXCHANGE_SYMBOLS = {}
-# REVERSE_SYMBOL_MAP = {exchange: {} for exchange in EXCHANGES}
+# print("Coinbase Subscribed Symbols:", EXCHANGE_SYMBOLS["coinbase"])
 
-# for exchange in EXCHANGES:
-#     EXCHANGE_SYMBOLS[exchange], REVERSE_SYMBOL_MAP[exchange] = map_symbols(exchange, BASE_TICKERS)
-
-print("Hyperliquid Symbols:", EXCHANGE_SYMBOLS["hyperliquid"])
-print("Reverse Mapping for Hyperliquid:", REVERSE_SYMBOL_MAP["hyperliquid"])
-
-# for exchange in EXCHANGES:
-#     EXCHANGE_SYMBOLS[exchange], REVERSE_SYMBOL_MAP[exchange] = map_symbols(exchange, BASE_TICKERS)
-#     print(f"[DEBUG] {exchange} symbols →", EXCHANGE_SYMBOLS[exchange])
-#       # ✅ Check if hyperliquid is included
