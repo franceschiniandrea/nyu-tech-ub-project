@@ -23,8 +23,8 @@ def process_trade_data(trade):
             "symbol": trade["symbol"],
             "trade_id": trade["id"],  # ✅ Extract trade_id directly
             "price": trade["price"],
-            "amount": trade.get("amount", trade.get("volume", 0)),  # ✅ Ensure amount is used, not volume
-            "side": trade.get("side", "buy"),  # ✅ Default to "buy" if missing
+            "amount": trade['amount'],
+            "side": trade['side'],  # ✅ Default to "buy" if missing
             "timestamp": trade["timestamp"],
             "local_timestamp": trade.get("localTimestamp", None)  # ✅ Ensure local timestamp
         }
