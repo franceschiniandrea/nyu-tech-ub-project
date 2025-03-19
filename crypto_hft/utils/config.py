@@ -14,8 +14,15 @@ class Config():
     # tickers to stream
     exchanges = ['coinbase','hyperliquid','poloniex']
     base_tickers = [
-        "BTC_USDT",
-        "ETH_USDT"
+    "BTC_USDT",  # Bitcoin
+    "ETH_USDT",  # Ethereum
+    "XRP_USDT",  # XRP
+    "SOL_USDT",  # Solana
+    "DOGE_USDT", # Dogecoin
+    "ADA_USDT",  # Cardano
+    "TRX_USDT",  # TRON
+    "LTC_USDT",  # Litecoin
+    "LINK_USDT"  # Chainlink
     ]
     data_types = [
      'book_snapshot_10_0s', 'trade'
@@ -36,8 +43,8 @@ class Config():
 
 
     # Batch insert configuration
-    orderbook_queue_threshold = 10000  
-    trade_queue_threshold = 5000  
+    orderbook_queue_threshold = 10000 
+    trade_queue_threshold = 5000 
 
     def __init__(self): 
         load_dotenv()
