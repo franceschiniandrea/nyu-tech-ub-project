@@ -27,7 +27,7 @@ class Config():
     data_types = [
      'book_snapshot_10_0s', 'trade'
     ]
-
+    
     db_host = None
     db_user = None
     db_password = None
