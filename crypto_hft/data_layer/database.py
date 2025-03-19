@@ -1,100 +1,89 @@
-import psycopg2
-from psycopg2 import sql
-from crypto_hft.utils.config import Config
+# This script sets up the database and creates tables for order books and trades.
+# It also creates indexes for efficient querying.
 from itertools import product
+from crypto_hft.utils.config import Config
+import mysql.connector
 
+# Load configuration
 config = Config()
 
+# MySQL connection configuration
 DB_CONFIG = {
-    'database': config.db_name, 
+    'database': config.db_database,
     'user': config.db_user,
     'password': config.db_password,
     'host': config.db_host,
-    'port': config.db_port
+    'port': config.db_port,  
+    'charset': 'utf8', 
 }
 
-# todo this should be pulled from the config
-BASE_TICKERS = [
-    "OP_USDT", "SC_USDT", "LDO_USDT", "SUI_USDT",
-    "NEAR_USDT", "DASH_USDT", "ATOM_USDT", "STEEM_USDT",
-    "UNI_USDT", "PEPE_USDT", "BNB_USDT", "LINK_USDT",
-    "BTC_USDT", "ETH_USDT"
-]
+BASE_TICKERS = config.base_tickers  # Access through the instance
+
+from itertools import product
 
 def create_order_book_table(symbol):
     table_name = f"orderbook_{symbol.upper().replace('-', '_')}"
 
     price_cols = []
-    for i, side, col_type in product(
-        range(10), # number of levels in the ob
-        ['bid', 'ask'], # bid and ask columns
-        ['sz', 'px'] # one column for the size, one for the price
-    ):
-        price_cols.append(f'{side}_{i}_{col_type} NUMERIC')
+    for i, side, col_type in product(range(15), ['bid', 'ask'], ['sz', 'px']):
+        price_cols.append(f'{side}_{i}_{col_type} DECIMAL(20,10) NULL')
 
-    return sql.SQL("""
-        CREATE TABLE IF NOT EXISTS {table} (
-            id SERIAL PRIMARY KEY,
-            exchange TEXT NOT NULL,
-            symbol TEXT NOT NULL,
-            {price_cols_fmt}
-            timestamp TIMESTAMPTZ NOT NULL,
-            local_timestamp TIMESTAMPTZ NOT NULL
+    query = f"""
+        CREATE TABLE IF NOT EXISTS {table_name} (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            exchange VARCHAR(255) NOT NULL,
+            symbol VARCHAR(255) NOT NULL,
+            timestamp DATETIME(6) NOT NULL,
+            local_timestamp DATETIME(6) NOT NULL, 
+            {', '.join(price_cols)}
         );
-        CREATE INDEX IF NOT EXISTS {idx_exchange} ON {table} (exchange);
-        CREATE INDEX IF NOT EXISTS {idx_symbol} ON {table} (symbol);
-        CREATE INDEX IF NOT EXISTS {idx_timestamp} ON {table} (timestamp DESC);
-    """).format(
-        table=sql.Identifier(table_name),
-        idx_exchange=sql.Identifier(f"idx_{table_name}_exchange"),
-        idx_symbol=sql.Identifier(f"idx_{table_name}_symbol"),
-        idx_timestamp=sql.Identifier(f"idx_{table_name}_timestamp"),
-        price_cols_fmt=sql.SQL(', ').join(map(sql.SQL, price_cols))
-    )
+    """
+    return query
+
 
 def create_trade_table(symbol):
     table_name = f"trade_{symbol.upper().replace('-', '_')}"
 
-    return sql.SQL("""
-        CREATE TABLE IF NOT EXISTS {table} (
-            id SERIAL PRIMARY KEY,
-            exchange TEXT NOT NULL,
-            symbol TEXT NOT NULL,
-            trade_id TEXT UNIQUE NOT NULL,
-            price NUMERIC NOT NULL,
-            amount NUMERIC NOT NULL,
-            side TEXT CHECK (side IN ('buy', 'sell')),
-            timestamp TIMESTAMPTZ NOT NULL,
-            local_timestamp TIMESTAMPTZ NOT NULL
+    query = f"""
+        CREATE TABLE IF NOT EXISTS {table_name} (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            exchange VARCHAR(255) NOT NULL,
+            symbol VARCHAR(255) NOT NULL,
+            trade_id VARCHAR(255) UNIQUE NOT NULL,
+            price DECIMAL(20,10) NOT NULL,  
+            amount DECIMAL(20,10) NOT NULL, 
+            side VARCHAR(255) NOT NULL,
+            timestamp DATETIME(6) NOT NULL,
+            local_timestamp DATETIME(6) NOT NULL
         );
-        CREATE INDEX IF NOT EXISTS {idx_exchange} ON {table} (exchange);
-        CREATE INDEX IF NOT EXISTS {idx_symbol} ON {table} (symbol);
-        CREATE INDEX IF NOT EXISTS {idx_timestamp} ON {table} (timestamp DESC);
-    """).format(
-        table=sql.Identifier(table_name),
-        idx_exchange=sql.Identifier(f"idx_{table_name}_exchange"),
-        idx_symbol=sql.Identifier(f"idx_{table_name}_symbol"),
-        idx_timestamp=sql.Identifier(f"idx_{table_name}_timestamp")
-    )
+    """
+    return query
+
 
 def setup_database():
     try:
-        conn = psycopg2.connect(**DB_CONFIG)
-        cur = conn.cursor()
-        
-        for symbol in BASE_TICKERS:
-            cur.execute(create_order_book_table(symbol))
-            cur.execute(create_trade_table(symbol))
-            print(f"[+] Tables created: orderbook_{symbol.lower()} & trade_{symbol.lower()}")
+        # Connect to MySQL using mysql-connector
+        conn = mysql.connector.connect(**DB_CONFIG)
+        cursor = conn.cursor()
 
-        conn.commit()
-        cur.close()
-        conn.close()
+        # Loop through all symbols to create tables
+        for symbol in BASE_TICKERS:
+            # Create order book table
+            cursor.execute(create_order_book_table(symbol))
+            conn.commit()  
+
+            # Create trade table
+            cursor.execute(create_trade_table(symbol))
+            conn.commit() 
+
+            print(f"[+] Tables created for {symbol}")
+
+        cursor.close()
+        conn.close()  
         print("[✅] Database setup completed!")
 
-    except Exception as e:
+    except mysql.connector.Error as e:
         print(f"[❌] Error setting up database: {e}")
 
 if __name__ == "__main__":
-    # setup_database()
-    print(create_order_book_table('BTC-USDT'))
+    setup_database() 

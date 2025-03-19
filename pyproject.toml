@@ -6,6 +6,9 @@ readme = "README.md"
 requires-python = ">=3.11.0"
 dependencies = [
     "aiohttp>=3.11.14",
+    "aiomysql>=0.2.0",
+    "ciso8601>=2.3.2",
+    "mysql-connector-python>=9.2.0",
     "numpy>=2.2.3",
     "pandas>=2.2.3",
     "psycopg2-binary>=2.9.10",
