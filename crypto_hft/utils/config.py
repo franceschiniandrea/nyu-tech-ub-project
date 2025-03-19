@@ -18,7 +18,7 @@ class Config():
         "ETH_USDT"
     ]
     data_types = [
-     'book_snapshot_10_0s'
+     'book_snapshot_10_0s', 'trade'
     ]
 
     db_host = None
@@ -26,9 +26,18 @@ class Config():
     db_password = None
     db_database = None
     db_port = 3306
-
-    orderbook_levels = 15
     
+    #orderbook configuration
+    orderbook_levels = 15
+
+    # Retry configuration for WebSocket connection
+    max_retries = 5
+    retry_wait_time = 10  # seconds
+
+
+    # Batch insert configuration
+    queue_threshold = 1000  # items
+    timeout_seconds = 30  # seconds
 
     def __init__(self): 
         load_dotenv()

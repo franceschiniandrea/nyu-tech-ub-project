@@ -58,11 +58,12 @@ def reverse_map_symbol(exchange, symbol):
     symbol_upper = symbol.upper()  # 🔹 Convert input to uppercase for lookup
     standardized_symbol = EXCHANGE_OUTPUT_MAPPING_RULES.get(exchange, lambda s: s)(symbol_upper)
 
-    # if standardized_symbol == symbol_upper:
-    #     logging.warning(f"[WARNING] No mapping found for {symbol_upper} from {exchange}. Returning as is.")
-
     return standardized_symbol
 
 
 for exchange in config.exchanges:
     EXCHANGE_SYMBOLS[exchange], REVERSE_SYMBOL_MAP[exchange] = map_symbols(exchange, config.base_tickers)
+
+
+# print(EXCHANGE_SYMBOLS)
+# print(REVERSE_SYMBOL_MAP)

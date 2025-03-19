@@ -7,7 +7,7 @@ from crypto_hft.utils.config import Config
 config = Config()
 orderbook_levels = config.orderbook_levels  
 
-def process_trade_data(trade, received_symbol):
+def process_trade_data(trade :dict, received_symbol: str) ->dict:
     """
     Processes trade messages to ensure consistency with the database schema.
     """
@@ -36,7 +36,7 @@ def process_trade_data(trade, received_symbol):
         return None
     
 
-def process_order_book_data(order_book, received_symbol):
+def process_order_book_data(order_book:dict, received_symbol:str) ->dict:
     """
     Processes order book data, ensuring correct ordering and MySQL compatibility.
     """
@@ -64,7 +64,7 @@ def process_order_book_data(order_book, received_symbol):
             "local_timestamp": order_book.get("localTimestamp", None),
         }
 
-        # ✅ Combine assignments into a single loop
+        # ✅ replace Nan with None for db write compatibility
         processed_order_book.update({
             key: None if math.isnan(value) else float(value)
             for i in range(orderbook_levels)

@@ -1,117 +1,5 @@
-import asyncio
-import logging
+
 import json
-import aiohttp
-import urllib.parse
-from crypto_hft.utils.config import Config
-from crypto_hft.utils.symbol_mapper import EXCHANGE_SYMBOLS, REVERSE_SYMBOL_MAP
-from crypto_hft.data_layer.data_processor import process_order_book_data, process_trade_data
-from crypto_hft.data_layer.db_writer import order_book_queues, trade_queues
-
-# config = Config()
-
-# async def websocket_consumer(exchange):
-#     """Maintains a WebSocket connection for an exchange with reconnection."""
-#     logging.info(f"[+] Connecting to {exchange} WebSocket...")
-#     # ✅ DEBUG: Print the symbols being sent to Coinbase
-#     #if exchange == "coinbase":
-#         #logging.info(f"[DEBUG] Coinbase Symbols Sent: {EXCHANGE_SYMBOLS.get(exchange, [])}")
-#     retries = 0  
-#     max_retries = 20  
-
-#     while True:
-#         try:
-#             stream_options = {
-#                 "exchange": exchange,
-#                 "symbols": EXCHANGE_SYMBOLS.get(exchange, []),
-#                 "dataTypes": config.data_types
-#             }
-
-#             options = urllib.parse.quote_plus(json.dumps(stream_options))
-#             URL = f"ws://localhost:8001/ws-stream-normalized?options={options}"
-
-#             async with aiohttp.ClientSession() as session:
-#                 async with session.ws_connect(URL) as websocket:
-#                     logging.info(f"[✅] Connected to {exchange} WebSocket.")
-#                     retries = 0  
-
-#                     message_count = 0  
-
-#                     async for msg in websocket:
-#                         if msg.type == aiohttp.WSMsgType.TEXT:
-#                             raw_data = msg.data  
-#                             message_count += 1
-
-#                             if message_count % 500 == 0:  # ✅ Log every 500 messages only
-#                                 logging.info(f"[RECEIVED] {exchange} | Message #{message_count}")
-
-#                             data = json.loads(raw_data)  
-#                             #if exchange == "coinbase":
-#                                 #logging.info(f"[DEBUG] Coinbase Raw Message: {raw_data}")
-#                             await update_data(data, exchange)  
-
-#                         elif msg.type in {aiohttp.WSMsgType.CLOSED, aiohttp.WSMsgType.ERROR}:
-#                             logging.warning(f"[!] {exchange} WebSocket closed unexpectedly. Reconnecting in 5s...")
-#                             await asyncio.sleep(5)
-#                             break  
-                        
-#                         else: 
-#                             raise ValueError('unhandled message type %s' % msg.type)
-
-#         except aiohttp.ClientConnectionError as e:
-#             retries += 1
-#             wait_time = min(2 ** retries, 60)  
-#             logging.error(f"[WebSocket ERROR] {exchange} connection failed: {e} (Retry {retries}/{max_retries}). Retrying in {wait_time}s...")
-#             await asyncio.sleep(wait_time)
-
-# async def update_data(trade, exchange):
-#     """Processes WebSocket messages and queues them for database insertion."""
-#     data_type = trade.get("type")
-#     received_symbol = trade.get("symbol", "").lower()
-
-#     if exchange == "hyperliquid":
-#         received_symbol = REVERSE_SYMBOL_MAP["hyperliquid"].get(received_symbol, received_symbol)
-#     else:
-#         received_symbol = REVERSE_SYMBOL_MAP.get(exchange, {}).get(received_symbol, received_symbol)
-#         received_symbol = received_symbol.upper().replace("-", "_")
-
-#     try:
-#         processed_data = None
-
-#         if data_type == "book_snapshot":
-#             processed_data = process_order_book_data(trade)
-
-#             if processed_data and received_symbol in order_book_queues:
-#                 await order_book_queues[received_symbol].put(processed_data)
-#                 queue_size = order_book_queues[received_symbol].qsize()
-
-#                 if queue_size % 500 == 0:  # ✅ Log only every 500th insert
-#                     logging.info(f"[QUEUED] Order Book | {exchange} | {received_symbol} | Queue Size: {queue_size}")
-
-#         elif data_type == "trade":
-#             processed_data = process_trade_data(trade)
-
-#             if processed_data and received_symbol in trade_queues:
-#                 await trade_queues[received_symbol].put(processed_data)
-#                 queue_size = trade_queues[received_symbol].qsize()
-
-#                 if queue_size % 500 == 0:  # ✅ Log only every 500th trade insert
-#                     logging.info(f"[QUEUED] Trade | {exchange} | {received_symbol} | Queue Size: {queue_size}")
-
-#     except Exception as e:
-#         logging.error(f"[ERROR] Failed to queue data for {exchange} ({received_symbol}): {e}")
-
-# async def main():
-#     """Runs WebSocket consumers for all exchanges concurrently."""
-#     logging.info("[+] Starting WebSocket consumers...")
-#     await asyncio.gather(*[websocket_consumer(exchange) for exchange in config.exchanges])
-
-# if __name__ == "__main__":
-#     try:
-#         asyncio.run(main())
-#     except KeyboardInterrupt:
-#         logging.info("[!] KeyboardInterrupt received. Exiting...")
-
 import asyncio
 import logging
 import aiohttp
@@ -130,14 +18,12 @@ class WebSocketConsumer:
         self.json_encoder = msgspec.json.Encoder()
         self.json_decoder = msgspec.json.Decoder()
         self.shutdown_event = asyncio.Event()
-        self.message_counter = 0  
-        self.ws_url = self.build_ws_url()
+        self.message_counter :int = 0  
+        self.ws_url :str  = self.build_ws_url()
     
-        
-
-    def build_ws_url(self):
+    def build_ws_url(self) -> str:
         """Constructs the WebSocket URL with properly formatted symbols."""
-        options_data = [
+        options_data : list = [
             {"exchange": ex,
             "symbols": EXCHANGE_SYMBOLS.get(ex, []),
             "dataTypes": self.config.data_types}
@@ -148,10 +34,11 @@ class WebSocketConsumer:
         ws_url = f"ws://localhost:8001/ws-stream-normalized?options={options}"
         return ws_url
 
-
-    async def connect(self):
-        retries = 0
-        max_retries_per_minute = 5  
+    async def connect(self) -> None:
+        #exceptions: connection issues like network timouts, websocket server unreachable
+        retries :int = 0
+        max_retries_per_minute :int = self.config.max_retries  # Retrieve max retries from config
+        retry_wait_time :int = self.config.retry_wait_time  # Retrieve retry wait time from config
 
         while not self.shutdown_event.is_set():
             try:
@@ -168,29 +55,62 @@ class WebSocketConsumer:
             except aiohttp.ClientConnectionError as e:
                 retries += 1
                 logging.warning(f"[!] WebSocket disconnected: {e}. Attempting to reconnect... (Retry {retries}/{max_retries_per_minute})")
-            
+
                 if retries >= max_retries_per_minute:
-                    logging.error("[❌] Max retries per minute reached. Waiting before retrying...")
-                    await asyncio.sleep(10)  # Wait for 10 seconds if too many failures
-            
-            
-                continue  
+                    logging.error(" Max retries per minute reached. Waiting before retrying...")
+                    await asyncio.sleep(retry_wait_time)  # Wait before retrying
+                else:
+                    # Exponential backoff
+                    backoff_time = min(2 ** retries, 60)  # Exponentially increase the wait time (up to a max of 60 seconds)
+                    logging.info(f" Retrying after {backoff_time} seconds...")
+                    await asyncio.sleep(backoff_time)  # Sleep before retrying
+
+                await self.reconnect()  
+                continue
 
 
-    async def handle_message(self, msg):
-        if msg.type == aiohttp.WSMsgType.TEXT:
-            data = self.json_decoder.decode(msg.data)
-            # logging.info(f"[RAW MESSAGE] {data}")
-            await self.update_data(data, data["exchange"])
+    async def handle_message(self, msg: aiohttp.WSMessage) -> None:
+        """Handles incoming WebSocket messages and processes them accordingly."""
+        try:
+            if msg.type == aiohttp.WSMsgType.TEXT:
+                # Process the message when it's of type TEXT
+                data :dict = self.json_decoder.decode(msg.data)
+                await self.update_data(data, data["exchange"])
 
-    async def update_data(self, data, exchange):
+            elif msg.type == aiohttp.WSMsgType.CLOSED:
+                # Handle WebSocket closure (optional)
+                logging.error(f" WebSocket closed. Reason: {msg.data}")
+                await self.reconnect() 
+
+            elif msg.type == aiohttp.WSMsgType.ERROR:
+                # Handle WebSocket error
+                logging.error(f" WebSocket encountered an error: {msg.data}")
+                await self.reconnect()
+
+        except Exception as e:
+            logging.error(f"[ Error processing message: {e}")
+    
+    async def reconnect(self)-> None:
+        retries = 0
+        max_retries = self.config.max_retries
+        while retries < max_retries:
+            try:
+                logging.info(f"[🔄] Attempting to reconnect... (Attempt {retries + 1}/{max_retries})")
+                await self.connect()  # Reconnect
+                break  # Successfully reconnected, exit loop
+            except Exception as e:
+                retries += 1
+                logging.error(f"[❌] Reconnection failed: {e}. Retrying...")
+                await asyncio.sleep(2 ** retries)  # Exponential backoff: wait longer after each failure
+
+
+    async def update_data(self, data:dict, exchange:str) -> None:
         """Processes WebSocket messages and logs processed & queued data."""
-        data_type = data.get("type")
+        data_type :str = data.get("type")
 
-        # Get received symbol from WebSocket message
-        received_symbol = data.get("symbol")
+        received_symbol :str = data.get("symbol")
 
-        standardized_symbol = REVERSE_SYMBOL_MAP[exchange].get(received_symbol, received_symbol)
+        standardized_symbol :str = REVERSE_SYMBOL_MAP[exchange].get(received_symbol, received_symbol)
         processed_data = None
 
         if data_type == "book_snapshot":
@@ -206,21 +126,46 @@ class WebSocketConsumer:
 
             if queue:
                 await queue.put(processed_data)
-                #logging.info(f"[QUEUED MESSAGE] {data_type.upper()} {standardized_symbol}: {processed_data}")
+                # logging.info(f"[QUEUED MESSAGE] {data_type.upper()} {standardized_symbol}: {processed_data}")
             else:
                 logging.warning(f"[WARNING] No queue found for {standardized_symbol}")
 
-    async def run(self):
+    async def run(self) -> None:
         await self.connect()
 
-    async def shutdown(self):
+    async def shutdown(self)-> None:
         logging.info("[!] Shutting down WebSocket Consumer...")
         self.shutdown_event.set()
 
-if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
-    consumer = WebSocketConsumer()
-    try:
-        asyncio.run(consumer.run())
-    except KeyboardInterrupt:
-        asyncio.run(consumer.shutdown())
+# if __name__ == "__main__":
+#     logging.basicConfig(level=logging.INFO)
+#     consumer = WebSocketConsumer()
+#     try:
+#         asyncio.run(consumer.run())
+#     except KeyboardInterrupt:
+#         asyncio.run(consumer.shutdown())
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
