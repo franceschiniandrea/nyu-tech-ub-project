@@ -77,8 +77,9 @@ class QueueProcessor:
                 queue_size = queue.qsize()
                 elapsed_time = time.time() - last_flush_time
 
-                if queue_size >= self.config.queue_threshold or (elapsed_time > self.config.timeout_seconds and queue_size > 0):
-                    batch_size = min(self.config.queue_threshold, queue_size)
+                if queue_size >= self.config.queue_threshold:
+                    batch_size = self.config.queue_threshold  
+                    
                     table_name = f"{table_prefix}_{symbol}"
 
                     batch_data = []

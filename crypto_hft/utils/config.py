@@ -36,8 +36,8 @@ class Config():
 
 
     # Batch insert configuration
-    queue_threshold = 1000  # items
-    timeout_seconds = 30  # seconds
+    queue_threshold = 10000  # items
+
 
     def __init__(self): 
         load_dotenv()
