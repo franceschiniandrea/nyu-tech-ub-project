@@ -1,153 +1,158 @@
 import asyncio
 import logging
 import time
-import io
-from psycopg2 import sql
-from psycopg2.pool import ThreadedConnectionPool
+import aiomysql
+import datetime
+import ciso8601
 from crypto_hft.utils.config import Config
+from crypto_hft.data_layer.queue_manager import order_book_queues, trade_queues
 
-config = Config()
-DB_CONFIG = {
-    'database': config.db_name, 
-    'user': config.db_user,
-    'password': config.db_password,
-    'host': config.db_host,
-    'port': config.db_port
-}
+class MySQLDatabase:
+    """Handles async MySQL connections and batch inserts."""
 
-order_book_queues: dict[str, asyncio.Queue] = {symbol.upper().replace("-", "_"): asyncio.Queue() for symbol in config.base_tickers}
-trade_queues: dict[str, asyncio.Queue] = {symbol.upper().replace("-", "_"): asyncio.Queue() for symbol in config.base_tickers}
+    def __init__(self, config: Config):
+        self.pool = None
+        self.config = config
 
-# Create connection pool (min 2, max 10 connections)
-DB_POOL = ThreadedConnectionPool(2, 10, **DB_CONFIG)
+    async def connect(self):
+        """Create a connection pool for MySQL."""
+        self.pool = await aiomysql.create_pool(
+            host=self.config.db_host,
+            user=self.config.db_user,
+            password=self.config.db_password,
+            db=self.config.db_database,
+            port=self.config.db_port,
+            autocommit=True
+        )
+        logging.info("✅ Async MySQL Connection Established")
 
-def get_db_connection():
-    """Fetch a connection from the pool instead of opening a new one each time."""
-    return DB_POOL.getconn()
+    async def insert_batch(self, table_name: str, batch_data: list, columns: list):
+        """Insert data asynchronously using aiomysql."""
+        if not batch_data:
+            return
 
-def release_db_connection(conn):
-    """Release the connection back to the pool."""
-    DB_POOL.putconn(conn)
+        async with self.pool.acquire() as conn:
+            async with conn.cursor() as cursor:
+                placeholders = ", ".join(["%s"] * len(columns))
+                column_names = ", ".join(columns)
+                query = f"INSERT INTO {table_name} ({column_names}) VALUES ({placeholders})"
 
-def format_table_name(base_symbol, is_trade=False):
-    """Formats the table name to match PostgreSQL schema."""
-    formatted_symbol = base_symbol.upper().replace("-", "_")  
-    return f"trade_{formatted_symbol}" if is_trade else f"orderbook_{formatted_symbol}"
+                try:
+                    await cursor.executemany(query, batch_data)
+                    logging.info(f"[✅] Inserted {len(batch_data)} rows into {table_name}")
+                except aiomysql.Error as e:
+                    logging.error(f"[❌] Failed to insert batch into {table_name}: {e}")
 
-async def batch_insert_order_books():
-    """Directly inserts data from the queue to PostgreSQL when it reaches the threshold."""
-    while True:
-        conn = get_db_connection()
-        try:
-            for received_symbol, queue in order_book_queues.items():
+    async def close(self):
+        """Close the MySQL connection pool."""
+        self.pool.close()
+        await self.pool.wait_closed()
+        logging.info("[!] MySQL connection closed.")
+
+
+class QueueProcessor:
+    """Handles queue processing and batch insertion into MySQL."""
+
+    def __init__(self, db: MySQLDatabase, config: Config):
+        self.db = db
+        self.config = config
+        self.shutdown_event = asyncio.Event()  
+
+    def iso8601_to_unix(self, timestamp: str) -> float:
+        """Convert ISO 8601 formatted timestamp to Unix timestamp (seconds since epoch)."""
+        dt = ciso8601.parse_datetime(timestamp)
+        return dt.timestamp()
+
+    def unix_to_mysql_datetime(self, unix_time: float) -> str:
+        """Convert Unix timestamp to MySQL DATETIME(6) format."""
+        dt = datetime.datetime.utcfromtimestamp(unix_time)
+        return dt.strftime('%Y-%m-%d %H:%M:%S.') + f"{dt.microsecond:06d}"
+
+    async def process_queue(self, symbol: str, queue: asyncio.Queue, table_prefix: str, columns: list):
+        """General function to process a queue and insert data into MySQL."""
+        last_flush_time = time.time()
+
+        while not self.shutdown_event.is_set():
+            try:
                 queue_size = queue.qsize()
+                elapsed_time = time.time() - last_flush_time
 
-                if queue_size >= 1000:
-                    logging.info(f"[BATCH TRIGGERED] {received_symbol} | Queue Size: {queue_size}")
+                if queue_size >= self.config.queue_threshold or (elapsed_time > self.config.timeout_seconds and queue_size > 0):
+                    batch_size = min(self.config.queue_threshold, queue_size)
+                    table_name = f"{table_prefix}_{symbol}"
 
-                    start_time = time.perf_counter()  
-                    batch = [await queue.get() for _ in range(1000)]  
-                    insert_batch_order_books(conn, received_symbol, batch)
-                    end_time = time.perf_counter()
-                    
-                    latency = (end_time - start_time) * 1000  # Convert to ms
-                    logging.info(f"[LATENCY] Order Book | {received_symbol} | {latency:.2f} ms")
+                    batch_data = []
+                    for _ in range(batch_size):
+                        item = await queue.get()
+                        item["timestamp"] = self.unix_to_mysql_datetime(self.iso8601_to_unix(item["timestamp"]))
+                        item["local_timestamp"] = self.unix_to_mysql_datetime(self.iso8601_to_unix(item["local_timestamp"]))
+                        batch_data.append(tuple(item[col] for col in columns))
 
-                if queue_size > 5000:
-                    logging.warning(f"[WARNING] {received_symbol} order book queue is too large: {queue_size}")
+                    await self.db.insert_batch(table_name, batch_data, columns)
 
-            await asyncio.sleep(1)
-        except Exception as e:
-            logging.error(f"[ORDER BOOK ERROR] {e}")
-        finally:
-            release_db_connection(conn)
+                    logging.info(f"[✅] Inserted {batch_size} rows for {symbol}. Remaining: {queue.qsize()}")
 
-async def batch_insert_trades():
-    """Directly inserts trade data from queue to PostgreSQL when it reaches the threshold."""
-    while True:
-        conn = get_db_connection()
-        try:
-            for received_symbol, queue in trade_queues.items():
-                queue_size = queue.qsize()
+                    last_flush_time = time.time()
 
-                if queue_size >= 1000:
-                    logging.info(f"[TRADE BATCH TRIGGERED] {received_symbol} | Queue Size: {queue_size}")
+                await asyncio.sleep(0.1)
+            except Exception as e:
+                logging.error(f"[❌] Insert Error for {symbol}: {e}")
 
-                    start_time = time.perf_counter()  # ✅ Start latency timing
-                    batch = [await queue.get() for _ in range(1000)]  # ✅ Directly extract from queue
-                    insert_batch_trades(conn, received_symbol, batch)
-                    end_time = time.perf_counter()
-                    
-                    latency = (end_time - start_time) * 1000  # Convert to ms
-                    logging.info(f"[LATENCY] Trade | {received_symbol} | {latency:.2f} ms")
+    async def process_order_book_queue(self, symbol: str, queue: asyncio.Queue):
+        """Processes a single order book queue."""
+        columns = ["exchange", "symbol", "timestamp", "local_timestamp"] + [
+            f"bid_{i}_sz" for i in range(self.config.orderbook_levels)
+        ] + [
+            f"bid_{i}_px" for i in range(self.config.orderbook_levels)
+        ] + [
+            f"ask_{i}_sz" for i in range(self.config.orderbook_levels)
+        ] + [
+            f"ask_{i}_px" for i in range(self.config.orderbook_levels)
+        ]
+        await self.process_queue(symbol, queue, "orderbook", columns)
 
-                if queue_size > 5000:
-                    logging.warning(f"[WARNING] {received_symbol} trade queue is too large: {queue_size}")
+    async def process_trade_queue(self, symbol: str, queue: asyncio.Queue):
+        """Processes a single trade queue."""
+        columns = ["exchange", "symbol", "trade_id", "price", "amount", "side", "timestamp", "local_timestamp"]
+        await self.process_queue(symbol, queue, "trade", columns)
 
-            await asyncio.sleep(1)
-        except Exception as e:
-            logging.error(f"[TRADE ERROR] {e}")
-        finally:
-            release_db_connection(conn)
+    async def batch_insert_order_books(self):
+        """Launches an async task for each order book queue to process all symbols concurrently."""
+        tasks = [asyncio.create_task(self.process_order_book_queue(symbol, queue)) for symbol, queue in order_book_queues.items()]
+        await asyncio.gather(*tasks)
 
-def insert_batch_order_books(conn, received_symbol, batch):
-    """Inserts order book data using COPY for fast batch writes."""
-    table_name = format_table_name(received_symbol, is_trade=False)
+    async def batch_insert_trades(self):
+        """Launches an async task for each trade queue to process all symbols concurrently."""
+        tasks = [asyncio.create_task(self.process_trade_queue(symbol, queue)) for symbol, queue in trade_queues.items()]
+        await asyncio.gather(*tasks)
 
-    output = io.StringIO()
-    for item in batch:
-        output.write(f"{item['exchange']},{item['symbol']},{item['bid_0_px']},{item['bid_0_sz']},"
-                     f"{item['ask_0_px']},{item['ask_0_sz']},{item['timestamp']},{item['local_timestamp']}\n")
-    output.seek(0)
-
-    try:
-        start_time = time.perf_counter()  # ✅ Start timing
-        with conn.cursor() as cur:
-            cur.copy_from(output, table_name, sep=",", columns=(
-                "exchange", "symbol", "bid_0_px", "bid_0_sz", 
-                "ask_0_px", "ask_0_sz", "timestamp", "local_timestamp"
-            ))
-            conn.commit()
-        end_time = time.perf_counter()
-        
-        db_latency = (end_time - start_time) * 1000  # Convert to ms
-        logging.info(f"[DB LATENCY] Order Book | {received_symbol} | COPY Latency: {db_latency:.2f} ms")
-
-    except Exception as e:
-        logging.error(f"[DB ERROR] Order Book | {received_symbol} | COPY failed: {e}")
-
-def insert_batch_trades(conn, received_symbol, batch):
-    """Inserts trade data using COPY for fast batch writes."""
-    table_name = format_table_name(received_symbol, is_trade=True)
-
-    output = io.StringIO()
-    for item in batch:
-        output.write(f"{item['exchange']},{item['symbol']},{item['trade_id']},{item['price']},"
-                     f"{item['amount']},{item['side']},{item['timestamp']},{item['local_timestamp']}\n")
-    output.seek(0)
-
-    try:
-        start_time = time.perf_counter()
-        with conn.cursor() as cur:
-            cur.copy_from(output, table_name, sep=",", columns=(
-                "exchange", "symbol", "trade_id", "price", 
-                "amount", "side", "timestamp", "local_timestamp"
-            ))
-            conn.commit()
-        end_time = time.perf_counter()
-        
-        db_latency = (end_time - start_time) * 1000  # Convert to ms
-        logging.info(f"[DB LATENCY] Trade | {received_symbol} | COPY Latency: {db_latency:.2f} ms")
-
-    except Exception as e:
-        logging.error(f"[DB ERROR] Trade | {received_symbol} | COPY failed: {e}")
-
-async def main():
-    """Runs batch insert functions for order books and trades."""
-    logging.info("[+] Starting database writer...")
-    await asyncio.gather(batch_insert_order_books(), batch_insert_trades())
-
-if __name__ == "__main__":
-    asyncio.run(main())
+    async def shutdown(self):
+        """Set shutdown event to stop processing."""
+        logging.info("[!] Stopping queue processor...")
+        self.shutdown_event.set()
 
 
+# Main execution
+# async def main():
+#     """Main function to start the async database writer."""
+#     config = Config()
+#     db = MySQLDatabase(config)
+#     await db.connect()
+
+#     queue_processor = QueueProcessor(db, config)
+
+#     try:
+#         await asyncio.gather(queue_processor.batch_insert_order_books(), queue_processor.batch_insert_trades())
+#     finally:
+#         await queue_processor.shutdown()
+#         await db.close()
+
+
+# # Run the event loop
+# if __name__ == "__main__":
+#     logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+
+#     try:
+#         asyncio.run(main())
+#     except KeyboardInterrupt:
+#         logging.info("[!] KeyboardInter

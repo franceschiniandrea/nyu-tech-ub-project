@@ -10,15 +10,15 @@ services:
       TM_API_KEY: "None"
     restart: unless-stopped
 
-  postgres_db:
-      image: postgres:15
-      container_name: tardis_postgres
-      restart: always
-      environment:
-        POSTGRES_USER: ${DB_USER}
-        POSTGRES_PASSWORD: ${DB_PASSWORD}
-        POSTGRES_DB: ${DB_NAME}
-      ports:
-        - "5432:5432"
-      volumes:
-        - postgres_data:/var/lib/postgresql/data
+  # postgres_db:
+  #     image: postgres:15
+  #     container_name: tardis_postgres
+  #     restart: always
+  #     environment:
+  #       POSTGRES_USER: ${DB_USER}
+  #       POSTGRES_PASSWORD: ${DB_PASSWORD}
+  #       POSTGRES_DB: ${DB_NAME}
+  #     ports:
+  #       - "5432:5432"
+  #     volumes:
+  #       - postgres_data:/var/lib/postgresql/data
