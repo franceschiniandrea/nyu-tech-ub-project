@@ -5,6 +5,7 @@ config = Config()
 EXCHANGE_SYMBOLS = {}
 REVERSE_SYMBOL_MAP: dict[str, dict] = {exchange: {} for exchange in config.exchanges}
 
+#rules to map standard format to exchange-specific symbol format
 EXCHANGE_MAPPING_RULES = {
     "hyperliquid": lambda base, quote: base.lower(),  
     "binanceus": lambda base, quote: f"{base}{quote}".lower(), 
