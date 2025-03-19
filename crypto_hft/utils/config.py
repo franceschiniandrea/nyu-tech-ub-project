@@ -36,7 +36,8 @@ class Config():
 
 
     # Batch insert configuration
-    queue_threshold = 10000  # item
+    orderbook_queue_threshold = 10000  
+    trade_queue_threshold = 5000  
 
     def __init__(self): 
         load_dotenv()
