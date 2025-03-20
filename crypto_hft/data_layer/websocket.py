@@ -35,8 +35,8 @@ class WebSocketConsumer:
         return ws_url
 
     async def connect(self) -> None:
-        #establishes connection to get data
-        #exceptions: connection issues like network timouts, websocket server unreachable
+        '''establishes connection to get data'''
+        '''exceptions: connection issues like network timouts, websocket server unreachable'''
         retries :int = 0
         max_retries_per_minute :int = self.config.max_retries  # Retrieve max retries from config
         retry_wait_time :int = self.config.retry_wait_time  # Retrieve retry wait time from config

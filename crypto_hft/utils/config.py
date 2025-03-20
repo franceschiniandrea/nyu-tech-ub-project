@@ -25,7 +25,7 @@ class Config():
     "LINK_USDT"  # Chainlink
     ]
     data_types = [
-     'book_snapshot_10_0s', 'trade'
+     'book_snapshot_15_0s', 'trade'
     ]
     
     
@@ -44,7 +44,7 @@ class Config():
 
 
     # Batch insert configuration
-    orderbook_queue_threshold = 10000 
+    orderbook_queue_threshold = 20000 
     trade_queue_threshold = 5000 
 
     def __init__(self): 

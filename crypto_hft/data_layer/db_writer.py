@@ -6,6 +6,7 @@ import datetime
 import ciso8601
 from crypto_hft.utils.config import Config
 from crypto_hft.data_layer.queue_manager import order_book_queues, trade_queues
+from crypto_hft.utils.time_utils import iso8601_to_unix, unix_to_mysql_datetime
 
 class MySQLDatabase:
     """Handles async MySQL connections and batch inserts."""
@@ -58,15 +59,6 @@ class QueueProcessor:
         self.config = config
         self.shutdown_event = asyncio.Event()  
 
-    def iso8601_to_unix(self, timestamp: str) -> float:
-        """Convert ISO 8601 formatted timestamp to Unix timestamp (seconds since epoch)."""
-        dt = ciso8601.parse_datetime(timestamp)
-        return dt.timestamp()
-
-    def unix_to_mysql_datetime(self, unix_time: float) -> str:
-        """Convert Unix timestamp to MySQL DATETIME(6) format."""
-        dt = datetime.datetime.utcfromtimestamp(unix_time)
-        return dt.strftime('%Y-%m-%d %H:%M:%S.') + f"{dt.microsecond:06d}"
 
     async def process_queue(self, symbol: str, queue: asyncio.Queue, table_prefix: str, columns: list):
         """General function to process a queue and insert data into MySQL."""
@@ -91,8 +83,8 @@ class QueueProcessor:
                     batch_data = []
                     for _ in range(batch_size):
                         item = await queue.get()
-                        item["timestamp"] = self.unix_to_mysql_datetime(self.iso8601_to_unix(item["timestamp"]))
-                        item["local_timestamp"] = self.unix_to_mysql_datetime(self.iso8601_to_unix(item["local_timestamp"]))
+                        item["timestamp"] = unix_to_mysql_datetime(iso8601_to_unix(item["timestamp"]))
+                        item["local_timestamp"] = unix_to_mysql_datetime(iso8601_to_unix(item["local_timestamp"]))
                         batch_data.append(tuple(item[col] for col in columns))
 
                     await self.db.insert_batch(table_name, batch_data, columns)
@@ -105,35 +97,6 @@ class QueueProcessor:
             except Exception as e:
                 logging.error(f"[❌] Insert Error for {symbol}: {e}")
 
-    # async def process_queue(self, symbol: str, queue: asyncio.Queue, table_prefix: str, columns: list):
-    #     """General function to process a queue and insert data into MySQL."""
-    #     last_flush_time = time.time()
-
-    #     while not self.shutdown_event.is_set():
-    #         try:
-    #             queue_size = queue.qsize()
-    #             elapsed_time = time.time() - last_flush_time
-
-    #             if queue_size >= self.config.queue_threshold:
-    #                 batch_size = min(self.config.queue_threshold, queue_size)
-    #                 table_name = f"{table_prefix}_{symbol}"
-
-    #                 batch_data = []
-    #                 for _ in range(batch_size):
-    #                     item = await queue.get()
-    #                     item["timestamp"] = self.unix_to_mysql_datetime(self.iso8601_to_unix(item["timestamp"]))
-    #                     item["local_timestamp"] = self.unix_to_mysql_datetime(self.iso8601_to_unix(item["local_timestamp"]))
-    #                     batch_data.append(tuple(item[col] for col in columns))
-
-    #                 await self.db.insert_batch(table_name, batch_data, columns)
-
-    #                 logging.info(f"[✅] Inserted {batch_size} rows into {table_name} ({table_prefix}). Remaining: {queue.qsize()}")
-
-    #                 last_flush_time = time.time()
-
-    #             await asyncio.sleep(0.1)
-    #         except Exception as e:
-    #             logging.error(f"[❌] Insert Error for {symbol}: {e}")
 
     async def process_order_book_queue(self, symbol: str, queue: asyncio.Queue):
         """Processes a single order book queue."""

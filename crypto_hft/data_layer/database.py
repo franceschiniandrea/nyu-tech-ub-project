@@ -22,7 +22,7 @@ BASE_TICKERS = config.base_tickers  # Access through the instance
 from itertools import product
 
 def create_order_book_table(symbol):
-    #query to create order_book_table
+    '''query to create order_book_table'''
     table_name = f"orderbook_{symbol.upper().replace('-', '_')}"
 
     price_cols = []
@@ -43,7 +43,7 @@ def create_order_book_table(symbol):
 
 
 def create_trade_table(symbol):
-    #Query to create trade table
+    '''Query to create trade table'''
     table_name = f"trade_{symbol.upper().replace('-', '_')}"
 
     query = f"""
