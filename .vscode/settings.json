@@ -3,6 +3,7 @@
         "project",
         "docker",
         "utils",
-        "data_layer"
+        "data_layer",
+        "utils/logging"
     ]
 }

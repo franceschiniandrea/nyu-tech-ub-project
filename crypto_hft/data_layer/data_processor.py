@@ -7,7 +7,7 @@ from crypto_hft.utils.config import Config
 config = Config()
 orderbook_levels = config.orderbook_levels  
 
-def process_trade_data(trade :dict, received_symbol: str) ->dict:
+def process_trade_data(trade: dict, received_symbol: str) -> dict | None:
     """
     Processes trade messages to ensure consistency with the database schema.
     """
@@ -36,7 +36,7 @@ def process_trade_data(trade :dict, received_symbol: str) ->dict:
         return None
     
 
-def process_order_book_data(order_book:dict, received_symbol:str) ->dict:
+def process_order_book_data(order_book: dict, received_symbol: str) -> dict | None:
     """
     Processes order book data, ensuring correct ordering and MySQL compatibility.
     """

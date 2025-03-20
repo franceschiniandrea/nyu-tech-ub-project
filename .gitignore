@@ -5,6 +5,8 @@ build/
 dist/
 wheels/
 *.egg-info
+.mypy_cache
+host-cache-dir
 
 # Virtual environments
 .venv

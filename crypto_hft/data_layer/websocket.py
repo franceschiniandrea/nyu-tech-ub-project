@@ -1,25 +1,23 @@
-
-import json
 import asyncio
 import logging
 import aiohttp
 import urllib.parse
 import msgspec
-import random
-
 from crypto_hft.utils.config import Config
 from crypto_hft.utils.symbol_mapper import EXCHANGE_SYMBOLS, REVERSE_SYMBOL_MAP
 from crypto_hft.data_layer.data_processor import process_order_book_data, process_trade_data
 from crypto_hft.data_layer.queue_manager import order_book_queues, trade_queues
+from crypto_hft.utils.logging import setup_logging
+from loguru import logger
 
 class WebSocketConsumer:
-    def __init__(self):
+    def __init__(self) -> None:
         self.config = Config()
         self.json_encoder = msgspec.json.Encoder()
         self.json_decoder = msgspec.json.Decoder()
         self.shutdown_event = asyncio.Event()
-        self.message_counter :int = 0  
-        self.ws_url :str  = self.build_ws_url()
+        self.message_counter: int = 0  
+        self.ws_url: str = self.build_ws_url()
         self.orderbook_counter = 0
         self.trade_counter = 0
         self.first_raw_logged = False
@@ -111,12 +109,14 @@ class WebSocketConsumer:
                 await asyncio.sleep(2 ** retries)  # Exponential backoff: wait longer after each failure
 
 
-    async def update_data(self, data:dict, exchange:str) -> None:
+    async def update_data(self, data: dict, exchange: str) -> None:
         """Processes WebSocket messages and logs processed & queued data."""
-        data_type :str = data.get("type")
-
-        received_symbol :str = data.get("symbol")
-
+        try: 
+            data_type = data['type']
+            received_symbol = data['symbol']
+        except KeyError as err: 
+            logger.error('Key not found while running update_data in websocket, err: %s' % err)
+            
         standardized_symbol :str = REVERSE_SYMBOL_MAP[exchange].get(received_symbol, received_symbol)
         processed_data = None
 
@@ -149,35 +149,10 @@ class WebSocketConsumer:
         logging.info("[!] Shutting down WebSocket Consumer...")
         self.shutdown_event.set()
 
-# if __name__ == "__main__":
-#     logging.basicConfig(level=logging.INFO)
-#     consumer = WebSocketConsumer()
-#     try:
-#         asyncio.run(consumer.run())
-#     except KeyboardInterrupt:
-#         asyncio.run(consumer.shutdown())
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+if __name__ == "__main__":
+    setup_logging()
+    consumer = WebSocketConsumer()
+    try:
+        asyncio.run(consumer.run())
+    except KeyboardInterrupt:
+        asyncio.run(consumer.shutdown())

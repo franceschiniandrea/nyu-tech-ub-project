@@ -5,7 +5,9 @@ SECRETS = [
     'mysql_host',
     'mysql_user', 
     'mysql_password', 
-    'mysql_database'
+    'mysql_database',
+    'telegram_api_key',
+    'telegram_chat_id'
 ]
 
 
@@ -28,12 +30,15 @@ class Config():
      'book_snapshot_15_0s', 'trade'
     ]
     
-    
     mysql_host = None
     mysql_user = None
     mysql_password = None
     mysql_database = None
     mysql_port = 3306
+
+    # telegram logger configuration 
+    telegram_api_key: str | None = None
+    telegram_chat_id: str | None = None
     
     #orderbook configuration
     orderbook_levels = 15
@@ -42,14 +47,21 @@ class Config():
     max_retries = 5
     retry_wait_time = 10  # seconds
 
-
     # Batch insert configuration
     orderbook_queue_threshold = 20000 
     trade_queue_threshold = 5000 
 
+    # logging configuration     
+    logger_telegram_min_level = 'WARNING'
+    logger_file_min_level = 'TRACE'
+    logger_console_min_level = 'DEBUG'
+    logger_telegram_max_buffer = 10
+    logger_file_filepath = 'logs.log'
+
     def __init__(self): 
         load_dotenv()
 
+        # get secrets from environment variables
         for secret in SECRETS:
             secret_name = secret.upper()
             if os.getenv(secret_name) is None:
