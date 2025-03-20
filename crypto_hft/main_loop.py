@@ -1,26 +1,19 @@
 
 import asyncio
-import logging
 from crypto_hft.data_layer.websocket import WebSocketConsumer
 from crypto_hft.data_layer.db_writer import MySQLDatabase, QueueProcessor
 from crypto_hft.utils.config import Config
-
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s",
-    handlers=[
-        logging.FileHandler("main.log"),
-        logging.StreamHandler()
-    ]
-)
+from crypto_hft.utils.logging import setup_logging
+from loguru import logger
 
 async def main():
     """
     Runs WebSocket consumer and MySQL database batch inserts concurrently for both order books and trades.
     Handles graceful shutdown on interruption.
     """
-    logging.info("[+] Starting WebSocket consumer and database writers...")
+    tasks = []
+    setup_logging()
+    logger.info("[+] Starting WebSocket consumer and database writers...")
 
     config = Config()
     
@@ -31,38 +24,42 @@ async def main():
     db = MySQLDatabase(config)
     await db.connect()
     queue_processor = QueueProcessor(db, config)
-
-    # Run WebSocket and MySQL processing in parallel
-    tasks = [
-        asyncio.create_task(websocket.run()),
-        asyncio.create_task(queue_processor.batch_insert_order_books()),
-        asyncio.create_task(queue_processor.batch_insert_trades()),
-    ]
+    logger.info('all things initialized, now starting the try/except loop')
 
     try:
+        # Run WebSocket and MySQL processing in parallel
+        loop = asyncio.get_event_loop() 
+        tasks += [
+            loop.create_task(websocket.run(), name='websocket_task'),
+            loop.create_task(queue_processor.batch_insert_order_books(),name='ob_processor'),
+            loop.create_task(queue_processor.batch_insert_trades(),name='trade_processor'),
+        ]
+        logger.info('starting main loop')
         await asyncio.gather(*tasks)
     except asyncio.CancelledError:
-        logging.warning("[!] Tasks cancelled. Shutting down gracefully...")
+        logger.error('Handling CancelledError in main_loop. Cancelling tasks...')
+        for task in tasks: 
+            logger.info('cancelling task', task, task.get_name(), task._state)
+            task.cancel()
+            await task
     except Exception as e:
-        logging.error(f"[❌] Unexpected error: {e}")
+        logger.error(f"[❌] Unexpected error: {e}")
     finally:
+        logger.debug('reached end of the statement, doing final cleanup')
         await cleanup(websocket, queue_processor, db)
 
 async def cleanup(websocket: WebSocketConsumer, queue_processor: QueueProcessor, db: MySQLDatabase):
     """Handles clean shutdown of WebSocket, queue processor, and database connections."""
-    logging.info("[!] Closing WebSocket connection...")
+    logger.info("[!] Closing WebSocket connection...")
     await websocket.shutdown()
 
-    logging.info("[!] Stopping queue processor...")
+    logger.info("[!] Stopping queue processor...")
     await queue_processor.shutdown()
 
-    logging.info("[!] Closing database connection...")
+    logger.info("[!] Closing database connection...")
     await db.close()
 
-    logging.info("[✅] Shutdown complete.")
+    logger.info("[✅] Shutdown complete.")
 
 if __name__ == "__main__":
-    try:
-        asyncio.run(main())
-    except KeyboardInterrupt:
-        logging.info("[!] KeyboardInterrupt received. Shutting down...")
+    asyncio.run(main())
