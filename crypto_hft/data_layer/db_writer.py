@@ -17,11 +17,11 @@ class MySQLDatabase:
     async def connect(self):
         """Create a connection pool for MySQL."""
         self.pool = await aiomysql.create_pool(
-            host=self.config.db_host,
-            user=self.config.db_user,
-            password=self.config.db_password,
-            db=self.config.db_database,
-            port=self.config.db_port,
+            host=self.config.mysql_host,
+            user=self.config.mysql_user,
+            password=self.config.mysql_password,
+            db=self.config.mysql_database,
+            port=self.config.mysql_port,
             autocommit=True
         )
         logging.info("✅ Async MySQL Connection Established")
