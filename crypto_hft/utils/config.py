@@ -37,8 +37,8 @@ class Config():
     db_port = 3306
 
     # telegram logger configuration 
-    telegram_api_key = None
-    telegram_chat_id = None
+    telegram_api_key: str | None = None
+    telegram_chat_id: str | None = None
     
     #orderbook configuration
     orderbook_levels = 15
