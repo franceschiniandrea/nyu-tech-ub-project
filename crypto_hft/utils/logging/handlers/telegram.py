@@ -6,33 +6,64 @@ import asyncio
 from loguru import logger
 
 class TelegramLogger(): 
-    def __init__(self, max_buffer: int):
-        # get the secrets from the config object
-        config = Config()
-        self.telegram_key = config.telegram_api_key
-        self.chat_id = config.telegram_chat_id
+    """Class for the Telegram Logger
 
+    The `__init__` method takes care of starting the asynchronous task that
+    checks the buffer size and flushes the messages to discord when the buffer size
+    is > than `max_buffer`. If a log with level above 40 is sent (`CRITICAL` or `ERROR`)
+    the buffer if flushed immediately.
+
+    The logs are put in a `asyncio.Queue` synchronously, and processed asynchronously in the 
+    `log_ingestor` task. When the buffer reaches the max size or is old enough, the function
+    makes a batch request to the Telegram API and flushes the messages. 
+    """
+    def __init__(self, telegram_api_key: str, chat_id: str, max_buffer: int):
+        """Initialize the TelegramLogger. 
+
+        Parameters
+        ----------
+        telegram_api_key: str
+            The Telegram Bot key, needed to authenticate to the API
+        chat_id: str
+            The Chat ID where to send the notifications
+        max_buffer : int
+            Maximum amount of messages to store before flushing the buffer and send 
+            the HTTP request to the Telegram API
+        """
+        # store the inputs in the class instance
+        self.telegram_key = telegram_api_key
+        self.chat_id = chat_id
         self.max_buffer = max_buffer
 
-        # define the queue, queue size and shutdown flag
+        # the shutdown flag tells the log ingestor to stop
+        # todo this might not be needed
+        self._shutdown_flag = False
+
+        # the queue takes care of storing the incoming logs
         self._queue: asyncio.Queue = asyncio.Queue()
+
+        # the buffer stores the messages until they are ready to be sent out
+        #   we also store the current buffer size to avoid calling len() every time
         self._log_message_buffer: list[str] = []
         self._current_buffer_size = 0
-        self._shutdown_flag = False
-        self._ev_loop = asyncio.get_event_loop()
 
-        # define encoders and decoders
+        # pre-initialize the encoder and decoder to handle json efficiently 
         self.json_encoder = msgspec.json.Encoder()
         self.json_decoder = msgspec.json.Decoder()
 
-        # define url, headers, and http client to make requests to telegram
-        self.url = f'https://api.telegram.org/bot{config.telegram_api_key}/sendMessage'
+        # define url, headers, and the http client to make requests to telegram
+        self.url = f'https://api.telegram.org/bot{telegram_api_key}/sendMessage'
         self.headers = {
             'Content-Type': 'application/json'
         }
+        self.timeouts = Timeouts(request_timeout=10)
         self.client = aiosonic.HTTPClient()
 
-    async def start_log_ingestor(self): 
+        # get the event loop and schedule the log ingestor task immediately
+        self._ev_loop = asyncio.get_event_loop()
+        self._ev_loop.create_task(self.start_log_ingestor())
+
+    async def log_ingestor_loop(self): 
         queue = self._queue
         log_message_buffer = self._log_message_buffer
         while not self._shutdown_flag: 
