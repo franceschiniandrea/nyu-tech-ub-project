@@ -1,9 +1,8 @@
 import asyncio
 import logging
 import time
-import aiomysql
-import datetime
-import ciso8601
+import aiomysql # type: ignore
+from aiomysql import Pool
 from crypto_hft.utils.config import Config
 from crypto_hft.data_layer.queue_manager import order_book_queues, trade_queues
 from crypto_hft.utils.time_utils import iso8601_to_unix, unix_to_mysql_datetime
@@ -12,7 +11,7 @@ class MySQLDatabase:
     """Handles async MySQL connections and batch inserts."""
 
     def __init__(self, config: Config):
-        self.pool = None
+        self.pool : Pool | None = None
         self.config = config
 
     async def connect(self):
@@ -31,6 +30,8 @@ class MySQLDatabase:
         """Insert data asynchronously using aiomysql."""
         if not batch_data:
             return
+        if self.pool is None: 
+            raise Exception('self.pool is None')
 
         async with self.pool.acquire() as conn:
             async with conn.cursor() as cursor:
