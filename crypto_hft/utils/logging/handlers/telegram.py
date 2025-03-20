@@ -1,9 +1,8 @@
-from crypto_hft.utils.config import Config
-# from loguru import Message
 import msgspec
 import aiosonic # type: ignore
 import asyncio
 from loguru import logger
+from aiosonic.timeout import Timeouts # type: ignore
 
 class TelegramLogger(): 
     """Class for the Telegram Logger
@@ -63,14 +62,15 @@ class TelegramLogger():
         self._ev_loop = asyncio.get_event_loop()
         self._ev_loop.create_task(self.start_log_ingestor())
 
-    async def log_ingestor_loop(self): 
+    async def log_ingestor_loop(self):
         queue = self._queue
         log_message_buffer = self._log_message_buffer
+        logger.debug('Starting Log Ingestor')
         while not self._shutdown_flag: 
             try:
-                logger.trace('awaiting to get log from queue')
+                logger.debug('awaiting to get log from queue')
                 log = await queue.get()
-                logger.trace('received log from queue')
+                logger.debug('received log from queue')
                 level = log['record']['level']['no']
 
                 log_message_buffer.append(log['text'])
@@ -88,9 +88,18 @@ class TelegramLogger():
                         logger.trace('buffer full, size=', self._current_buffer_size)
                         await self._flush_buffer()
 
-                queue.task_done()
             except Exception as e: 
                 raise Exception('log writer loop:', e)
+
+            queue.task_done()    
+    
+    async def start_log_ingestor(self):
+        try:
+            task = self._ev_loop.create_task(self.log_ingestor_loop())
+            await task
+        except asyncio.CancelledError:
+            await self.terminate()
+            raise
             
     async def _flush_buffer(self) -> None:
         tasks: list[asyncio.Task] = []
@@ -125,17 +134,22 @@ class TelegramLogger():
         
         self._queue.put_nowait(data)
 
-    async def shutdown(self):
-        logger.trace('setting shutdown flag to true')
+    async def terminate(self): 
+        """Shutdown the TelegramLogger gracefully.
+        
+        Processes any message left in the buffer and disposes of the HTTP Connection.
+        """
+        logger.info('Terminating Logger instance')
+
         self._shutdown_flag = True
-        await self._queue.join()
+        # logger.info('joining queue, size=',self._queue.qsize())
+        # await self._queue.join()
+        # logger.info('queue unblocked')
         if self._log_message_buffer: 
+            logger.info('There are some messages left, flushing TelegramLogger buffer...')
             await self._flush_buffer()
 
+        logger.info('cleaning up aiosonic connection...')
         await self.client.connector.cleanup()
         del self.client
-
-    def stop(self): 
-        logger.trace('shutting down')
-        # asyncio.run(self.shutdown())
-        self._ev_loop.run_until_complete(self.shutdown())
+        logger.info('Logger instance successfully terminated')
