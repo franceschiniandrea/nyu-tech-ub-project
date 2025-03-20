@@ -5,7 +5,9 @@ SECRETS = [
     'db_host',
     'db_user', 
     'db_password', 
-    'db_database'
+    'db_database',
+    'telegram_api_key',
+    'telegram_chat_id'
 ]
 
 
@@ -28,12 +30,15 @@ class Config():
      'book_snapshot_15_0s', 'trade'
     ]
     
-    
     db_host = None
     db_user = None
     db_password = None
     db_database = None
     db_port = 3306
+
+    # telegram logger configuration 
+    telegram_api_key = None
+    telegram_chat_id = None
     
     #orderbook configuration
     orderbook_levels = 15
@@ -42,7 +47,6 @@ class Config():
     max_retries = 5
     retry_wait_time = 10  # seconds
 
-
     # Batch insert configuration
     orderbook_queue_threshold = 20000 
     trade_queue_threshold = 5000 
@@ -50,6 +54,7 @@ class Config():
     def __init__(self): 
         load_dotenv()
 
+        # get secrets from environment variables
         for secret in SECRETS:
             secret_name = secret.upper()
             if os.getenv(secret_name) is None:

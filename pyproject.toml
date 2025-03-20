@@ -7,6 +7,7 @@ requires-python = ">=3.11.0"
 dependencies = [
     "aiohttp>=3.11.14",
     "aiomysql>=0.2.0",
+    "aiosonic>=0.24.0",
     "ciso8601>=2.3.2",
     "loguru>=0.7.3",
     "msgspec>=0.19.0",
