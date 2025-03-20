@@ -20,6 +20,9 @@ class WebSocketConsumer:
         self.shutdown_event = asyncio.Event()
         self.message_counter :int = 0  
         self.ws_url :str  = self.build_ws_url()
+        self.orderbook_counter = 0
+        self.trade_counter = 0
+        self.first_raw_logged = False
     
     def build_ws_url(self) -> str:
         """Constructs the WebSocket URL with properly formatted symbols."""
@@ -76,6 +79,9 @@ class WebSocketConsumer:
             if msg.type == aiohttp.WSMsgType.TEXT:
                 # Process the message when it's of type TEXT
                 data :dict = self.json_decoder.decode(msg.data)
+                if not self.first_raw_logged:
+                    logging.info(f"[FIRST RAW MESSAGE] {data}")
+                    self.first_raw_logged = True  
                 await self.update_data(data, data["exchange"])
 
             elif msg.type == aiohttp.WSMsgType.CLOSED:
@@ -120,6 +126,8 @@ class WebSocketConsumer:
             processed_data = process_trade_data(data, standardized_symbol)
 
         if processed_data:
+            # Log only the first and every 5000th queued order book/trade message
+            
             #logging.info(f"[PROCESSED MESSAGE] {data_type.upper()} {standardized_symbol}: {processed_data}")
 
             # Determine the correct queue and enqueue data
@@ -127,6 +135,9 @@ class WebSocketConsumer:
 
             if queue:
                 await queue.put(processed_data)
+                if (data_type == "book_snapshot" and (self.orderbook_counter == 1 or self.orderbook_counter % 5000 == 0)) or \
+                (data_type == "trade" and (self.trade_counter == 1 or self.trade_counter % 5000 == 0)):
+                    logging.info(f"[QUEUED {data_type.upper()} MESSAGE {self.orderbook_counter if data_type == 'book_snapshot' else self.trade_counter}] {standardized_symbol}: {processed_data}")
                 # logging.info(f"[QUEUED MESSAGE] {data_type.upper()} {standardized_symbol}: {processed_data}")
             else:
                 logging.warning(f"[WARNING] No queue found for {standardized_symbol}")
