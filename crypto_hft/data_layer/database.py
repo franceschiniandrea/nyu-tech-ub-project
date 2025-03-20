@@ -9,11 +9,11 @@ config = Config()
 
 # MySQL connection configuration
 DB_CONFIG = {
-    'database': config.db_database,
-    'user': config.db_user,
-    'password': config.db_password,
-    'host': config.db_host,
-    'port': config.db_port,  
+    'database': config.mysql_database,
+    'user': config.mysql_user,
+    'password': config.mysql_password,
+    'host': config.mysql_host,
+    'port': config.mysql_port,  
     'charset': 'utf8', 
 }
 

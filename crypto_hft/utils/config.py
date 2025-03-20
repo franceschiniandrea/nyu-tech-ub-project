@@ -2,10 +2,10 @@ from dotenv import load_dotenv
 import os
 
 SECRETS = [
-    'db_host',
-    'db_user', 
-    'db_password', 
-    'db_database'
+    'mysql_host',
+    'mysql_user', 
+    'mysql_password', 
+    'mysql_database'
 ]
 
 
@@ -29,11 +29,11 @@ class Config():
     ]
     
     
-    db_host = None
-    db_user = None
-    db_password = None
-    db_database = None
-    db_port = 3306
+    mysql_host = None
+    mysql_user = None
+    mysql_password = None
+    mysql_database = None
+    mysql_port = 3306
     
     #orderbook configuration
     orderbook_levels = 15
