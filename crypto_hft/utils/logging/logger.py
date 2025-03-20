@@ -1,11 +1,12 @@
 from loguru import logger
 import sys
 from crypto_hft.utils.logging.handlers import TelegramLogger
+from crypto_hft.utils.config import Config
 import asyncio 
+
 def setup_logging(): 
-    telegram_handler = TelegramLogger(max_buffer=10)
-    event_loop = asyncio.get_event_loop()
-    task = event_loop.create_task(telegram_handler.start_log_ingestor())
+    config = Config() 
+    telegram_handler = TelegramLogger(telegram_api_key=config.telegram_api_key, chat_id=config.telegram_chat_id, max_buffer=10)
 
     # remove all existing handlers
     logger.remove()
@@ -15,19 +16,18 @@ def setup_logging():
         colorize=True,
         level='DEBUG'
     )
+    logger.add('test.log', level='TRACE', serialize=True, enqueue=True)
 
     # only send to telegram warning and above
     logger.add(telegram_handler.submit_log, serialize=True, level='WARNING')
-    return task
 
 if __name__ == '__main__':
     async def main():
-        task = setup_logging()
+        setup_logging()
 
         for i in range(15): 
             logger.warning('test debug')
 
         logger.error('test error')
-        await task
     
     asyncio.run(main())
