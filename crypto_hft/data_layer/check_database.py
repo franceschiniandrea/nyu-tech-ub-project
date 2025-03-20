@@ -28,15 +28,17 @@ try:
     if tables:
         print("✅ Tables in the database:")
         for table in tables:
-            print(table[0])  # Print table name
+            # print table name
+            print(table[0])  # type: ignore
 
             # Fetch and print the schema (columns) for each table
-            print(f"Schema for {table[0]}:")
-            cursor.execute(f"DESCRIBE {table[0]};")  # Describe the table to get its schema
+            print(f"Schema for {table[0]}:") # type: ignore
+            # Describe the table to get its schema
+            cursor.execute(f"DESCRIBE {table[0]};")  # type: ignore
             columns = cursor.fetchall()
 
             for column in columns:
-                print(f"  Column: {column[0]}, Type: {column[1]}, Nullable: {column[2]}, Default: {column[4]}")
+                print(f"  Column: {column[0]}, Type: {column[1]}, Nullable: {column[2]}, Default: {column[4]}") # type: ignore
             print("-" * 50)  # Separator for better readability
 
     else:
