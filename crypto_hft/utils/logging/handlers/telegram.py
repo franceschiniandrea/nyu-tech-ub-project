@@ -102,8 +102,9 @@ class TelegramLogger():
             raise
             
     async def _flush_buffer(self) -> None:
+        """Flush the buffer, making a batch request to the Telegram API.
+        """
         tasks: list[asyncio.Task] = []
-        logger.trace('flushing buffer, buffer=')
 
         try:
             for log in self._log_message_buffer: 
@@ -116,22 +117,32 @@ class TelegramLogger():
                     self.client.post(
                         url=self.url,
                         headers=self.headers,
-                        data=self.json_encoder.encode(payload)
+                        data=self.json_encoder.encode(payload),
+                        timeouts=self.timeouts
                     )
                 )
 
-            logger.trace('gathering all the tasks', tasks)
-            res = await asyncio.gather(*tasks)
-            logger.trace('done', res)
-            self._log_message_buffer.clear()
-            self._current_buffer_size = 0
+            # gather all the tasks
+            await asyncio.gather(*tasks)
+
         except Exception as err: 
-            print(f'Failed to send message to telegram', err)
+            logger.error(f'Failed to send message to telegram', err)
+
+        # once done, clear the message buffer and set back to 0 the buffer size
+        self._log_message_buffer.clear()
+        self._current_buffer_size = 0
 
     def submit_log(self, message: str): 
-        logger.trace('processing message' , message)
+        """Base function to submit a synchronous log to the `asyncio.Queue`
+
+        Parameters
+        ----------
+        message : str
+            The loguru message. This will be a serialized JSON object containing
+            the text of the log message along with its metadata (which is needed
+            to get the log level)
+        """
         data = self.json_decoder.decode(str(message))
-        
         self._queue.put_nowait(data)
 
     async def terminate(self): 
