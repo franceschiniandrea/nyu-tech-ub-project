@@ -6,10 +6,10 @@ config = Config()
 
 # MySQL connection configuration
 DB_CONFIG = {
-    'database': config.db_database,
-    'user': config.db_user,
-    'password': config.db_password,
-    'host': config.db_host,
+    'database': config.mysql_database,
+    'user': config.mysql_user,
+    'password': config.mysql_password,
+    'host': config.mysql_host,
     'port': 3306,  
     'charset': 'utf8',  
 }
