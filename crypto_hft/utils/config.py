@@ -51,6 +51,13 @@ class Config():
     orderbook_queue_threshold = 20000 
     trade_queue_threshold = 5000 
 
+    # logging configuration     
+    logger_telegram_min_level = 'WARNING'
+    logger_file_min_level = 'TRACE'
+    logger_console_min_level = 'DEBUG'
+    logger_telegram_max_buffer = 10
+    logger_file_filepath = 'logs.log'
+
     def __init__(self): 
         load_dotenv()
 
