@@ -19,8 +19,6 @@ DB_CONFIG = {
 
 BASE_TICKERS = config.base_tickers  # Access through the instance
 
-from itertools import product
-
 def create_order_book_table(symbol):
     '''query to create order_book_table'''
     table_name = f"orderbook_{symbol.upper().replace('-', '_')}"
@@ -32,8 +30,7 @@ def create_order_book_table(symbol):
     query = f"""
         CREATE TABLE IF NOT EXISTS {table_name} (
             id INT AUTO_INCREMENT PRIMARY KEY,
-            exchange VARCHAR(255) NOT NULL,
-            symbol VARCHAR(255) NOT NULL,
+            exchange VARCHAR(25) NOT NULL,
             timestamp DATETIME(6) NOT NULL,
             local_timestamp DATETIME(6) NOT NULL, 
             {', '.join(price_cols)}
@@ -49,16 +46,15 @@ def create_trade_table(symbol):
     query = f"""
         CREATE TABLE IF NOT EXISTS {table_name} (
             id INT AUTO_INCREMENT PRIMARY KEY,
-            exchange VARCHAR(255) NOT NULL,
-            symbol VARCHAR(255) NOT NULL,
+            exchange VARCHAR(25) NOT NULL,
             trade_id VARCHAR(255) UNIQUE NOT NULL,
             price DECIMAL(20,10) NOT NULL,  
             amount DECIMAL(20,10) NOT NULL, 
-            side VARCHAR(255) NOT NULL,
+            side ENUM('buy', 'sell') NOT NULL,
             timestamp DATETIME(6) NOT NULL,
             local_timestamp DATETIME(6) NOT NULL
         );
-    """
+    """ # todo trade_id should be an integer
     return query
 
 
