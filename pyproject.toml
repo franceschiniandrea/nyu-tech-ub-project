@@ -19,5 +19,6 @@ dependencies = [
     "python-dotenv>=1.0.1",
     "requests>=2.32.3",
     "types-psycopg2>=2.9.21.20250121",
+    "uvloop>=0.21.0",
     "websockets>=15.0.1",
 ]
