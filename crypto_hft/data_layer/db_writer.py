@@ -101,7 +101,7 @@ class QueueProcessor:
 
     async def process_order_book_queue(self, symbol: str, queue: asyncio.Queue):
         """Processes a single order book queue."""
-        columns = ["exchange", "symbol", "timestamp", "local_timestamp"] + [
+        columns = ["exchange", "timestamp", "local_timestamp"] + [
             f"bid_{i}_sz" for i in range(self.config.orderbook_levels)
         ] + [
             f"bid_{i}_px" for i in range(self.config.orderbook_levels)
@@ -114,7 +114,7 @@ class QueueProcessor:
 
     async def process_trade_queue(self, symbol: str, queue: asyncio.Queue):
         """Processes a single trade queue."""
-        columns = ["exchange", "symbol", "trade_id", "price", "amount", "side", "timestamp", "local_timestamp"]
+        columns = ["exchange", "trade_id", "price", "amount", "side", "timestamp", "local_timestamp"]
         await self.process_queue(symbol, queue, "trade", columns)
 
     async def batch_insert_order_books(self):
