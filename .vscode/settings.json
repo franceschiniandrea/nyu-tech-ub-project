@@ -4,6 +4,7 @@
         "docker",
         "utils",
         "data_layer",
-        "utils/logging"
+        "utils/logging",
+        "docs"
     ]
 }
