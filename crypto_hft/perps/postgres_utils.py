@@ -2,7 +2,7 @@ import asyncio
 import logging
 from datetime import datetime
 from timeutils import iso8601_to_unix
-import asyncpg
+import asyncpg # type: ignore
 
 from gcs_fallback_writer import GCSFallbackWriter  # ✅ NEW
 

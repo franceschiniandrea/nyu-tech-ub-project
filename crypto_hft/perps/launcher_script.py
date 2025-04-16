@@ -9,7 +9,7 @@ from postgres_utils import PostgreSQLDatabase, QueueProcessor
 
 # --- Global state ---
 shutdown_event = asyncio.Event()
-running_tasks = []
+running_tasks: list[asyncio.Task] = []
 
 
 # --- Signal handling ---

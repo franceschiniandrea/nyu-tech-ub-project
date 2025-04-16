@@ -1,4 +1,4 @@
-import ccxt.pro as ccxtpro
+import ccxt.pro as ccxtpro # type: ignore
 import logging
 from .models import ExchangeCurrency, Network
 from crypto_hft.utils.config import Config

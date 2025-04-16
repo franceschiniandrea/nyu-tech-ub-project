@@ -1,6 +1,6 @@
 import pandas as pd
 from datetime import datetime
-from google.cloud import storage
+from google.cloud import storage # type: ignore
 import os
 import logging
 

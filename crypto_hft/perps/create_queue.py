@@ -3,8 +3,8 @@ from normalizers import normalize_symbol
 import asyncio
 
 config = Config()
-order_book_queues_perps = {}
-trade_queues_perps = {}
+order_book_queues_perps: dict[str, asyncio.Queue] = {}
+trade_queues_perps: dict[str, asyncio.Queue] = {}
 
 for token in config.TARGET_TOKENS:
     # Use the actual market format you're streaming (e.g., "BTC/USDT:USDT" for perps)

@@ -1,6 +1,6 @@
 import asyncio
 import datetime
-import ccxt.async_support as ccxt
+import ccxt.async_support as ccxt # type: ignore
 
 from crypto_hft.funding_rate.symbol_manager import get_all_symbols
 from crypto_hft.utils.config import Config

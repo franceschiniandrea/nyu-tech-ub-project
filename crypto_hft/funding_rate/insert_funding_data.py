@@ -1,6 +1,6 @@
 import logging
 from crypto_hft.utils.time_utils import iso8601_to_datetime
-import asyncpg
+import asyncpg # type: ignore
 
 class FundingRateInserter:
     def __init__(self, db_config: dict):

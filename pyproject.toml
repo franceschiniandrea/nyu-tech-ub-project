@@ -17,6 +17,7 @@ dependencies = [
     "mysql-connector-python>=9.2.0",
     "numpy>=2.2.3",
     "pandas>=2.2.3",
+    "pandas-stubs>=2.2.3.250308",
     "psycopg2-binary>=2.9.10",
     "python-dotenv>=1.0.1",
     "requests>=2.32.3",
