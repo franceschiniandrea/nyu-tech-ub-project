@@ -5,7 +5,7 @@ from crypto_hft.utils.config import Config
 from crypto_hft.funding_rate.symbol_manager import get_all_symbols
 from crypto_hft.funding_rate.fetch_data import AsyncFundingRateFetcher
 from crypto_hft.utils.time_utils import iso8601_to_datetime
-import asyncpg
+import asyncpg # type: ignore 
 
 logging.basicConfig(level=logging.INFO)
 

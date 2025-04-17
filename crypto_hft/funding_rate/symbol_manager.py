@@ -1,4 +1,4 @@
-import ccxt
+import ccxt # type: ignore 
 
 # --- Exchange Loader ---
 def load_exchange(name: str, spot: bool = False):
