@@ -34,7 +34,6 @@ def process_trade_data(trade: dict, received_symbol: str) -> dict | None:
     except Exception as e:
         logging.error(f"[PROCESSING ERROR] Unexpected error processing trade: {e}")
         return None
-    
 
 def process_order_book_data(order_book: dict, received_symbol: str) -> dict | None:
     """
@@ -50,13 +49,11 @@ def process_order_book_data(order_book: dict, received_symbol: str) -> dict | No
         ask_prices = np.full(orderbook_levels, np.nan)
         ask_sizes = np.full(orderbook_levels, np.nan)
 
-        # Fill available data
         bid_prices[:len(bids)] = [bid["price"] for bid in bids]
         bid_sizes[:len(bids)] = [bid["amount"] for bid in bids]
         ask_prices[:len(asks)] = [ask["price"] for ask in asks]
         ask_sizes[:len(asks)] = [ask["amount"] for ask in asks]
 
-        # ✅ Create the processed order book dictionary in correct MySQL order
         processed_order_book = {
             "exchange": order_book["exchange"],
             "symbol": received_symbol,
@@ -64,7 +61,7 @@ def process_order_book_data(order_book: dict, received_symbol: str) -> dict | No
             "local_timestamp": order_book.get("localTimestamp", None),
         }
 
-        # ✅ replace Nan with None for db write compatibility
+       
         processed_order_book.update({
             key: None if math.isnan(value) else float(value)
             for i in range(orderbook_levels)

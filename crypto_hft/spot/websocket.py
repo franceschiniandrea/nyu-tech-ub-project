@@ -3,12 +3,17 @@ import logging
 import aiohttp
 import urllib.parse
 import msgspec
+import logging
 from crypto_hft.utils.config import Config
 from crypto_hft.utils.symbol_mapper import EXCHANGE_SYMBOLS, REVERSE_SYMBOL_MAP
-from crypto_hft.data_layer.data_processor import process_order_book_data, process_trade_data
-from crypto_hft.data_layer.queue_manager import order_book_queues, trade_queues
-from crypto_hft.utils.logging import setup_logging
-from loguru import logger
+from crypto_hft.spot.data_processor import process_order_book_data, process_trade_data
+from crypto_hft.spot.queue_manager import order_book_queues, trade_queues
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)s | %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S"
+)
 
 class WebSocketConsumer:
     def __init__(self) -> None:
@@ -77,9 +82,9 @@ class WebSocketConsumer:
             if msg.type == aiohttp.WSMsgType.TEXT:
                 # Process the message when it's of type TEXT
                 data :dict = self.json_decoder.decode(msg.data)
-                if not self.first_raw_logged:
-                    logging.info(f"[FIRST RAW MESSAGE] {data}")
-                    self.first_raw_logged = True  
+                #if not self.first_raw_logged:
+                    #logging.info(f"[FIRST RAW MESSAGE] {data}")
+                    #self.first_raw_logged = True  
                 await self.update_data(data, data["exchange"])
 
             elif msg.type == aiohttp.WSMsgType.CLOSED:
@@ -115,7 +120,7 @@ class WebSocketConsumer:
             data_type = data['type']
             received_symbol = data['symbol']
         except KeyError as err: 
-            logger.error('Key not found while running update_data in websocket, err: %s' % err)
+            logging.error('Key not found while running update_data in websocket, err: %s' % err)
             
         standardized_symbol :str = REVERSE_SYMBOL_MAP[exchange].get(received_symbol, received_symbol)
         processed_data = None
@@ -135,10 +140,10 @@ class WebSocketConsumer:
 
             if queue:
                 await queue.put(processed_data)
-                if (data_type == "book_snapshot" and (self.orderbook_counter == 1 or self.orderbook_counter % 5000 == 0)) or \
-                (data_type == "trade" and (self.trade_counter == 1 or self.trade_counter % 5000 == 0)):
-                    logging.info(f"[QUEUED {data_type.upper()} MESSAGE {self.orderbook_counter if data_type == 'book_snapshot' else self.trade_counter}] {standardized_symbol}: {processed_data}")
-                # logging.info(f"[QUEUED MESSAGE] {data_type.upper()} {standardized_symbol}: {processed_data}")
+                #if (data_type == "book_snapshot" and (self.orderbook_counter == 1 or self.orderbook_counter % 5000 == 0)) or \
+                #(data_type == "trade" and (self.trade_counter == 1 or self.trade_counter % 5000 == 0)):
+                    #logging.info(f"[QUEUED {data_type.upper()} MESSAGE {self.orderbook_counter if data_type == 'book_snapshot' else self.trade_counter}] {standardized_symbol}: {processed_data}")
+                #logging.info(f"[QUEUED MESSAGE] {data_type.upper()} {standardized_symbol}: {processed_data}")
             else:
                 logging.warning(f"[WARNING] No queue found for {standardized_symbol}")
 
@@ -149,10 +154,10 @@ class WebSocketConsumer:
         logging.info("[!] Shutting down WebSocket Consumer...")
         self.shutdown_event.set()
 
-if __name__ == "__main__":
-    setup_logging()
-    consumer = WebSocketConsumer()
-    try:
-        asyncio.run(consumer.run())
-    except KeyboardInterrupt:
-        asyncio.run(consumer.shutdown())
+# if __name__ == "__main__":
+#     consumer = WebSocketConsumer()
+#     try:
+#         asyncio.run(consumer.run())
+#     except KeyboardInterrupt:
+#         asyncio.run(consumer.shutdown())
+
