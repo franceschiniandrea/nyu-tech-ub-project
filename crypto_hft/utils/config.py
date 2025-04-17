@@ -38,11 +38,47 @@ class Config:
     # Exchange support
     exchanges = ['coinbase', 'hyperliquid', 'poloniex', 'binance']
 
+    target_tokens = [
+    "OP", 
+    "SC", 
+    "LDO", 
+    "SUI", 
+    "NEAR",
+    "DASH",
+    "ATOM", 
+    "STEEM",
+    "UNI",
+    "PEPE",
+    # "ZEC",  
+    "BNB",
+    "LINK", 
+    "DOT",
+    "BTC", 
+    "ETH",
+    "XRP", 
+    "SOL", 
+    "DOGE", 
+    "ADA", 
+    "TRX", 
+    "LTC"
+]
     # Tickers to track
-    TARGET_TOKENS = [
-    "BTC", "ETH", "XRP", "SOL", "DOGE",
-    "ADA", "TRX", "LTC", "MATIC", "LINK",
-    "OP", "SC", "LDO", "SUI", "NEAR"
+    # TARGET_TOKENS = [
+    # "BTC", "ETH", "XRP", "SOL", "DOGE",
+    # "ADA", "TRX", "LTC", "MATIC", "LINK",
+    # "OP", "SC", "LDO", "SUI", "NEAR"
+    # ]
+
+    base_tickers = [
+    "BTC_USDT", 
+    "ETH_USDT",  
+    "XRP_USDT",  # XRP
+    "SOL_USDT",  
+    "DOGE_USDT", # Dogecoin
+    "ADA_USDT",  # Cardano
+    "TRX_USDT",  # TRON
+    "LTC_USDT",  # Litecoin
+    "LINK_USDT"  # Chainlink
     ]
 
     # Order book config
