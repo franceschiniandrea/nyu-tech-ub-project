@@ -1,6 +1,8 @@
 import asyncpg
 import logging
-from .models import ExchangeCurrency
+from crypto_hft.metadata.models import ExchangeCurrency
+import json
+
 
 class CurrencyMetadataInserter:
     def __init__(self, db_config: dict):

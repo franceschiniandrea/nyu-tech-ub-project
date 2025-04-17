@@ -2,14 +2,12 @@ import asyncio
 import logging
 import time
 from crypto_hft.utils.config import Config
-from .fetcher import fetch_exchange_metadata
-from .inserter import CurrencyMetadataInserter
-from .differ import compare_snapshots
-from crypto_hft.utils.config import Config
+from crypto_hft.metadata.fetcher import fetch_exchange_metadata
+from crypto_hft.metadata.inserter import CurrencyMetadataInserter
+from crypto_hft.metadata.differ import compare_snapshots
+
 config = Config()
-
-
-EXCHANGES = config.exchanges
+EXCHANGES = ["binance", "poloniex"]
 
 async def main():
     config = Config()
@@ -20,11 +18,10 @@ async def main():
         "password": config.postgres_password,
         "database": config.postgres_database
     })
-
     await db.connect()
 
     while True:
-        logging.info("🔁 Starting currency metadata cycle...")
+        logging.info("\n🔁 Starting currency metadata cycle...")
         for exchange_id in EXCHANGES:
             try:
                 currencies = await fetch_exchange_metadata(exchange_id)
@@ -42,6 +39,7 @@ async def main():
                             logging.info(f"🔄 Change detected: {ccy.exchange}:{ccy.ccy} – {changed}")
             except Exception as e:
                 logging.error(f"[❌] Failed to fetch or process {exchange_id}: {e}")
+
         logging.info("✅ Metadata poll complete. Sleeping 15 minutes.")
         await asyncio.sleep(900)
 
