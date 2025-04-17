@@ -1,13 +1,12 @@
+from dotenv import load_dotenv
+from pathlib import Path
+import os
+
 TARGET_TOKENS = [
     "BTC", "ETH", "XRP", "SOL", "DOGE",
     "ADA", "TRX", "LTC", "MATIC", "LINK",
     "OP", "SC", "LDO", "SUI", "NEAR"
 ]
-
-from dotenv import load_dotenv
-from pathlib import Path
-import os
-
 
 load_dotenv(dotenv_path=Path(__file__).resolve().parent / ".env")
 
@@ -139,10 +138,10 @@ class Config:
     def credentials(self) -> dict:
         """Returns a dictionary of all exchange credentials."""
         return {
-            'coinbase_api_key': self.coinbase_api_key,
-            'coinbase_api_secret': self.coinbase_api_secret,
-            'poloniex_api_key': self.poloniex_api_key,
-            'poloniex_api_secret': self.poloniex_api_secret,
-            'binance_api_key': self.binance_api_key,
-            'binance_api_secret': self.binance_api_secret,
+            'coinbase_api_key': self.coinbase_api_key, # type: ignore
+            'coinbase_api_secret': self.coinbase_api_secret, # type: ignore
+            'poloniex_api_key': self.poloniex_api_key, # type: ignore
+            'poloniex_api_secret': self.poloniex_api_secret, # type: ignore
+            'binance_api_key': self.binance_api_key, # type: ignore
+            'binance_api_secret': self.binance_api_secret, # type: ignore
         }

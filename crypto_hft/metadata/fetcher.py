@@ -1,7 +1,7 @@
-import ccxt.async_support as ccxt
+import ccxt.pro as ccxt # type: ignore
 import logging
 from crypto_hft.utils.config import Config
-from crypto_hft.metadata.models import ExchangeCurrency, Network
+from crypto_hft.metadata.models import ExchangeCurrency, Network, Limit
 
 config = Config()
 
