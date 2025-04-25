@@ -5,6 +5,7 @@
         "utils",
         "data_layer",
         "utils/logging",
-        "docs"
+        "docs",
+        "models"
     ]
 }
