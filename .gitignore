@@ -19,3 +19,4 @@ host-cache-dir
 *.log
 *.pq
 *.ipynb
+*.parquet
