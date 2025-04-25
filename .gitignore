@@ -17,3 +17,5 @@ host-cache-dir
 # file types
 .DS_Store
 *.log
+*.pq
+*.ipynb
