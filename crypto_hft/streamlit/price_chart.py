@@ -1,19 +1,26 @@
 import streamlit as st
 import pandas as pd
-import plotly.graph_objects as go
+import plotly.graph_objects as go # type: ignore
 import sqlalchemy
 from sqlalchemy import create_engine
 import os
 from dotenv import load_dotenv
 from pathlib import Path
+import numpy as np
+import psycopg2
 import sys
 import time
+from streamlit.delta_generator import DeltaGenerator
+import asyncio
+import msgspec
+import websockets
+from loguru import logger
+import uuid
+from crypto_hft.streamlit.util_functions import fetch_available_symbols
+from crypto_hft.utils.config import Config
 
 # Add the project root to the Python path
 sys.path.append(str(Path(__file__).resolve().parent.parent.parent))
-
-# Import the Config class from crypto_hft
-from crypto_hft.utils.config import Config
 
 # Load environment variables
 load_dotenv(dotenv_path=Path(__file__).resolve().parent.parent / "utils" / ".env")
@@ -25,35 +32,16 @@ st.set_page_config(
     layout="wide"
 )
 
-# Page title
-st.title("Crypto Price Chart")
-
-# Sidebar controls
-st.sidebar.header("Chart Controls")
-
-# Trading pair selection
-trading_pair = st.sidebar.selectbox(
-    "Select Trading Pair",
-    ["BTC/USDT", "SOL/USDT"],
-    index=0
-)
-
-# Auto-refresh settings
-auto_refresh = st.sidebar.checkbox("Auto-refresh data", value=True)
-refresh_interval = st.sidebar.slider("Refresh interval (seconds)", 1, 60, 5)
-
-if auto_refresh:
-    st.write(f"Auto-refreshing every {refresh_interval} seconds")
-    time_placeholder = st.empty()
+available_symbols = fetch_available_symbols()
 
 # Create a connection to the PostgreSQL database
 def get_db_connection():
     try:
         # Get database credentials from environment variables
-        host = os.getenv('postgres_host')
-        user = os.getenv('postgres_user')
-        password = os.getenv('postgres_password')
-        database = os.getenv('postgres_database')
+        host = os.getenv('POSTGRES_HOST')
+        user = os.getenv('POSTGRES_USER')
+        password = os.getenv('POSTGRES_PASSWORD')
+        database = os.getenv('POSTGRES_DATABASE')
         
         # Create the connection string
         conn_string = f"postgresql://{user}:{password}@{host}/{database}"
@@ -66,20 +54,31 @@ def get_db_connection():
         st.error(f"Error connecting to database: {e}")
         return None
 
+# Page title
+st.title("Crypto Price Chart")
+# Sidebar controls
+st.sidebar.header("Chart Controls")
+st.subheader("Trade Statistics")
+
+trading_pair: DeltaGenerator = st.sidebar.selectbox(
+    "Select Trading Pair",
+    available_symbols,
+    index=0,
+    format_func=lambda s: s.upper().replace('_', '/'),
+)
+
 # Function to fetch trade data from the database
 @st.cache_data(ttl=60)  # Cache the data for 60 seconds
 def fetch_trade_data(_engine, trading_pair, limit=10000):
     try:
-        # Determine which table to query based on the trading pair
-        if trading_pair == "BTC/USDT":
-            table_name = "trade_btc_usdt"
-            base_currency = "BTC"
-        elif trading_pair == "SOL/USDT":
-            table_name = "trade_sol_usdt"
-            base_currency = "SOL"
-        else:
-            st.error(f"Unknown trading pair: {trading_pair}")
-            return pd.DataFrame()
+        table_name = f'trade_{trading_pair}'
+        base_currency = (
+            trading_pair
+            .replace('perps_','')
+            .split('_')[0]
+            .replace('usdt', '')
+            .upper()
+        )
         
         # Use the correct columns from the table
         query = f"""
@@ -185,8 +184,135 @@ def create_trade_chart(df, base_currency):
     
     return fig
 
+class Dashboard(): 
+    def __init__(self) -> None: 
+        self.trades: list[dict] = []
+        self.order_book: list[dict] = []
+
+        self.price_chart = None
+        self.data_container: DeltaGenerator | None = None
+        self.symbol_changed = asyncio.Event()
+
+        self.event_loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(self.event_loop)
+
+    async def fetch_from_websocket(self) -> None: 
+        while True: 
+            uri = f'ws://localhost:9999/{trading_pair}'
+            decoder = msgspec.json.Decoder()
+            logger.info(f"Connecting to {uri}...")
+            async with websockets.connect(f'ws://localhost:9999/{trading_pair}') as ws: 
+                logger.info(f"Connected to WebSocket for {trading_pair}.")
+                try:
+                    async for msg in ws: 
+                        data = decoder.decode(msg)
+                        # print(f"Received message: {data}")
+
+                        if 'trade_id' in data:
+                            self.trades.append(data)
+                        elif 'bid_0_px' in data: 
+                            self.order_book.append(data)
+                        else:
+                            raise ValueError("Invalid message format: 'trade_id' not found in data")
+                        
+                except websockets.ConnectionClosed:
+                    logger.error("Connection closed, attempting to reconnect...")
+
+    def first_render(self) -> None: 
+        self.data_container = st.empty()
+
+    def render(self): 
+        if len(self.trades) == 0:
+            with self.data_container.container():
+                st.warning("No data available. Please check your database connection and table name.")
+            
+            return
+
+        print(f'selected trading pair: {trading_pair}')
+        df = pd.DataFrame(self.trades)  
+        df['timestamp'] = pd.to_datetime(df['timestamp'])
+        df['local_timestamp'] = pd.to_datetime(df['timestamp'])
+        base_currency = 'btc_usdt'
+        timeframe = '1min'
+        chart_type = 'Candlestick'
+
+        # print(f"Received trade data: {df.head(2)}")
+        # Display some statistics
+        
+        with self.data_container.container():
+            col1, col2, col3, col4 = st.columns(4)
+            
+            with col1:
+                st.metric("Latest Price", f"${df['price'].iloc[-1]:.2f}")
+            
+            with col2:
+                price_change = df['price'].iloc[-1] - df['price'].iloc[0]
+                st.metric("Price Change", f"${price_change:.2f}", delta=f"{price_change:.2f}")
+            
+            with col3:
+                st.metric("Number of Trades", len(df))
+            
+            with col4:
+                # timespan = df['local_timestamp'].max() - df['local_timestamp'].min()
+                timespan = '1min'
+                st.metric("Time Span", f"{timespan}")
+            
+            # Display the selected chart
+            if chart_type == "Candlestick":
+                st.plotly_chart(create_candlestick_chart(df, base_currency, timeframe), use_container_width=True, key=uuid.uuid4())
+            else:
+                st.plotly_chart(create_trade_chart(df, base_currency), use_container_width=True)
+            
+            # Display the raw data
+            with st.expander("View Raw Data"):
+                st.dataframe(df)
+    
+    async def refresh(self):
+        while True:
+            self.render()
+            await asyncio.sleep(5)
+
+    async def start_ws_task(self): 
+        while True: 
+            task = asyncio.create_task(self.fetch_from_websocket(), name='fetch_trade_data')
+            await self.symbol_changed.wait()
+
+            self.symbol_changed.clear()
+            task.cancel()
+            try: 
+                await task
+            except asyncio.CancelledError:
+                logger.info("Task cancelled, starting new task...")
+                continue
+
+    async def start(self): 
+        self.first_render()
+
+        logger.info("Starting WebSocket consumer and database writers...")
+        tasks = [
+            asyncio.create_task(self.start_ws_task(), name='fetch_trade_data'),
+            asyncio.create_task(self.refresh())
+        ]
+        self.tasks = tasks
+
+        await asyncio.gather(*tasks)
+
+    async def astop(self): 
+        tasks = self.tasks
+        for task in tasks: 
+            logger.info(f"Cancelling task: {task.get_name()}")
+            task.cancel()
+            await task
+        logger.info("All tasks cancelled.")
+
+    def stop(self): 
+        self.event_loop.run_until_complete(self.astop())
+
 # Main app
-def main():
+async def main():
+    trades = {}
+    order_book = {}
+
     # Connect to the database
     engine = get_db_connection()
     
@@ -212,43 +338,57 @@ def main():
     
     # Fetch the data
     with st.spinner("Fetching trade data..."):
-        df, base_currency = fetch_trade_data(engine, trading_pair, num_trades)
+        # df, base_currency = fetch_trade_data(engine, trading_pair, num_trades)
+        df = pd.DataFrame()
+        base_currency = 'btc_usdt'
+        # res = fetch_order_book(engine, trading_pair)
+        # print(f"Received order book data: {res}")
+
+    df = pd.DataFrame(trades)
     
     if df.empty:
         st.warning("No data available. Please check your database connection and table name.")
-        return
-    
-    # Display some statistics
-    st.subheader("Trade Statistics")
-    col1, col2, col3, col4 = st.columns(4)
-    
-    with col1:
-        st.metric("Latest Price", f"${df['price'].iloc[-1]:.2f}")
-    
-    with col2:
-        price_change = df['price'].iloc[-1] - df['price'].iloc[0]
-        st.metric("Price Change", f"${price_change:.2f}", delta=f"{price_change:.2f}")
-    
-    with col3:
-        st.metric("Number of Trades", len(df))
-    
-    with col4:
-        timespan = df['local_timestamp'].max() - df['local_timestamp'].min()
-        st.metric("Time Span", f"{timespan}")
-    
-    # Display the selected chart
-    if chart_type == "Candlestick":
-        st.plotly_chart(create_candlestick_chart(df, base_currency, timeframe), use_container_width=True)
-    else:
-        st.plotly_chart(create_trade_chart(df, base_currency), use_container_width=True)
-    
+
+    else: 
+        print(f"Received trade data: {df}")
+        # Display some statistics
+        st.subheader("Trade Statistics")
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            st.metric("Latest Price", f"${df['price'].iloc[-1]:.2f}")
+        
+        with col2:
+            price_change = df['price'].iloc[-1] - df['price'].iloc[0]
+            st.metric("Price Change", f"${price_change:.2f}", delta=f"{price_change:.2f}")
+        
+        with col3:
+            st.metric("Number of Trades", len(df))
+        
+        with col4:
+            timespan = df['local_timestamp'].max() - df['local_timestamp'].min()
+            st.metric("Time Span", f"{timespan}")
+        
+        # Display the selected chart
+        if chart_type == "Candlestick":
+            st.plotly_chart(create_candlestick_chart(df, base_currency, timeframe), use_container_width=True)
+        else:
+            st.plotly_chart(create_trade_chart(df, base_currency), use_container_width=True)
+        
     # Display the raw data
     with st.expander("View Raw Data"):
         st.dataframe(df)
 
-    if auto_refresh:
-        time.sleep(refresh_interval)
-        st.rerun()
+# if __name__ == "__main__":
+#     loop = asyncio.new_event_loop()
 
-if __name__ == "__main__":
-    main()
+print(f'session state: {st.session_state}')
+loop = asyncio.new_event_loop()
+# if 'dashboard' in st.session_state:
+#     # st.session_state.dashboard.event_loop.run_until_complete(st.session_state.dashboard.stop())
+#     st.session_state.dashboard.stop()
+# if "dashboard" not in st.session_state:
+
+st.session_state.dashboard = Dashboard()
+# loop.create_task(st.session_state.dashboard.start())
+loop.run_until_complete(st.session_state.dashboard.start())
