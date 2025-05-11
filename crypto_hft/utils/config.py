@@ -36,6 +36,11 @@ class Config:
 
     # Exchange support
     exchanges = ['coinbase', 'hyperliquid', 'poloniex', 'binance']
+    data_types = [
+        "trade", # all trades
+        "book_change", # diffs
+        "book_snapshot_20_30s" # OB snapshots, 20 levels every minute
+    ]
 
     target_tokens = [
     "OP", 
@@ -131,7 +136,7 @@ class Config:
 
         #Validate GCS key path if provided
         if self.gcs_key_path and not os.path.exists(self.gcs_key_path):
-            raise ValueError("❌ GOOGLE_APPLICATION_CREDENTIALS path is invalid.")
+            raise ValueError(f"❌ GOOGLE_APPLICATION_CREDENTIALS path is invalid - {Path(self.gcs_key_path).resolve()}.")
         os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = self.gcs_key_path
 
     @property
