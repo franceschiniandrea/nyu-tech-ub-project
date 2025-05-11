@@ -8,6 +8,10 @@ from crypto_hft.utils.config import Config
 from crypto_hft.utils.symbol_mapper import EXCHANGE_SYMBOLS, REVERSE_SYMBOL_MAP
 from crypto_hft.spot.data_processor import process_order_book_data, process_trade_data
 from crypto_hft.spot.queue_manager import order_book_queues, trade_queues
+from crypto_hft.spot.websocket_streamer import WebsocketStreamer
+from loguru import logger
+
+DRY_RUN = False
 
 logging.basicConfig(
     level=logging.INFO,
@@ -16,8 +20,9 @@ logging.basicConfig(
 )
 
 class WebSocketConsumer:
-    def __init__(self) -> None:
+    def __init__(self, websocket_streamer: WebsocketStreamer) -> None:
         self.config = Config()
+        self.websocket_streamer = websocket_streamer
         self.json_encoder = msgspec.json.Encoder()
         self.json_decoder = msgspec.json.Decoder()
         self.shutdown_event = asyncio.Event()
@@ -136,6 +141,12 @@ class WebSocketConsumer:
             #logging.info(f"[PROCESSED MESSAGE] {data_type.upper()} {standardized_symbol}: {processed_data}")
 
             # Determine the correct queue and enqueue data
+            # logger.info(f'sending update to the websocket streamer for {standardized_symbol} - data:\n{processed_data}')
+            self.websocket_streamer.send_update(standardized_symbol.lower(), processed_data)
+
+            if DRY_RUN: 
+                # logger.info('code is running in dry run mode, not sending data to the queue')
+                return
             queue = order_book_queues.get(standardized_symbol) if data_type == "book_snapshot" else trade_queues.get(standardized_symbol)
 
             if queue:

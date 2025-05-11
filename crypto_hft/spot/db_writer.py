@@ -1,10 +1,10 @@
 import asyncio
 import logging
 import time
-import asyncpg  
+import asyncpg # type: ignore
 from crypto_hft.utils.config import Config
 from crypto_hft.spot.queue_manager import order_book_queues, trade_queues
-from crypto_hft.utils.time_utils import iso8601_to_datetime
+import ciso8601
 from datetime import datetime
 from ciso8601 import parse_datetime
 
@@ -34,6 +34,7 @@ class PostgreSQLDatabase:
 
     async def insert_batch(self, table_name: str, batch_data: list, columns: list):
         """Insert data asynchronously using asyncpg."""
+        assert self.pool is not None, 'PostgreSQL connection pool is not initialized.'
         if not batch_data:
             return
 
@@ -76,8 +77,8 @@ class QueueProcessor:
 
                     for _ in range(batch_size):
                         item = await queue.get()
-                        item["timestamp"] = iso8601_to_datetime(item["timestamp"])
-                        item["local_timestamp"] = iso8601_to_datetime(item["local_timestamp"])
+                        item["timestamp"] = ciso8601.parse_datetime(item["timestamp"])
+                        item["local_timestamp"] = ciso8601.parse_datetime(item["local_timestamp"])
                         batch_data.append(tuple(item[col] for col in columns))
 
                     await self.db.insert_batch(table_name, batch_data, columns)

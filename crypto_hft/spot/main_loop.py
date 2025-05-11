@@ -5,6 +5,7 @@ import sys
 import uvloop  
 
 from crypto_hft.spot.queue_manager import order_book_queues, trade_queues
+from crypto_hft.spot.websocket_streamer import WebsocketStreamer
 from crypto_hft.spot.websocket import WebSocketConsumer
 from crypto_hft.spot.db_writer import PostgreSQLDatabase, QueueProcessor
 from crypto_hft.utils.config import Config
@@ -19,7 +20,7 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler("/home/ss16430/nyu-tech-ub-project/hft_error.log"),
+        # logging.FileHandler("/home/ss16430/nyu-tech-ub-project/hft_error.log"),
         logging.StreamHandler()
     ]
 )
@@ -32,7 +33,8 @@ async def main():
     logging.info("[+] Starting WebSocket consumer and database writers...")
 
     config = Config()
-    websocket = WebSocketConsumer()
+    websocket_streamer = WebsocketStreamer()
+    websocket = WebSocketConsumer(websocket_streamer=websocket_streamer)
     db = PostgreSQLDatabase(config)
 
     try:
@@ -44,6 +46,7 @@ async def main():
             asyncio.create_task(websocket.run(), name='websocket_task'),
             asyncio.create_task(queue_processor.batch_insert_order_books(), name='ob_processor'),
             asyncio.create_task(queue_processor.batch_insert_trades(), name='trade_processor'),
+            asyncio.create_task(websocket_streamer.start(), name='websocket_server'),
             # asyncio.create_task(monitor_queues(), name='queue_monitor'),
         ]
 

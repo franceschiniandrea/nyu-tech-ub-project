@@ -6,6 +6,7 @@
         "data_layer",
         "utils/logging",
         "docs",
-        "models"
+        "models",
+        "frontend"
     ]
 }
