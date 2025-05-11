@@ -125,7 +125,7 @@ class CrossExchangeArb():
 
             # if either of the sides is NaN return NaN
             if np.isnan(liquid_bid[0]) or np.isnan(illiquid_bid[0]):
-                logger.warning(f'Returning NaN for buy illiquid for symbol {symbol} on {illiquid_exchange}, since one of the legs is NaN')
+                # logger.warning(f'Returning NaN for buy illiquid for symbol {symbol} on {illiquid_exchange}, since one of the legs is NaN')
                 buy_illiquid_edge = np.nan
             else: 
                 # buy at bid on illiquid, sell at bid on liquid
@@ -133,7 +133,7 @@ class CrossExchangeArb():
             
             # if either of the sides is NaN return NaN
             if np.isnan(liquid_ask[0]) or np.isnan(illiquid_ask[0]):
-                logger.warning(f'Returning NaN for sell illiquid for symbol {symbol} on {illiquid_exchange}, since one of the legs is NaN')
+                # logger.warning(f'Returning NaN for sell illiquid for symbol {symbol} on {illiquid_exchange}, since one of the legs is NaN')
                 sell_illiquid_edge = np.nan
             else: 
                 # buy at ask on illiquid, sell at ask on liquid
